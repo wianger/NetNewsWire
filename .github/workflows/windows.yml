@@ -26,16 +26,18 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      # Only what the Windows build uses: some App Store screenshot paths contain '"', which Windows
-      # doesn't allow in file names, so a full checkout fails.
+      # Only what the Windows build uses. Some App Store screenshot paths contain '"', which Windows
+      # can't represent; sparse checkout never writes them, but git still checks every path in the
+      # commit on Windows (core.protectNTFS), so that check is relaxed for this checkout only.
       - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          sparse-checkout: |
-            Modules
-            Windows
-            Themes
-            buildscripts
+        shell: pwsh
+        run: |
+          git init --quiet .
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git fetch --quiet --no-tags --depth=1 --filter=blob:none origin ${{ github.sha }}
+          git sparse-checkout set --cone Modules Windows Themes buildscripts
+          git -c core.protectNTFS=false checkout --quiet --force ${{ github.sha }}
+          git log --oneline -1
 
       # Pinned to the v1.14.2 commit: a third-party action.
       - name: Install Swift
