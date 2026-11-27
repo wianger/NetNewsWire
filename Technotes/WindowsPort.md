@@ -317,7 +317,9 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 - 这轮发现的问题：核心的事件合并按固定顺序发出各类事件，新加的事件类型没放进顺序表就会被悄悄丢掉。现在加了断言：每种事件类型都必须在顺序表里。
 - 验证：核心测试（默认关闭时不通知；打开后通知；标为已读后撤回；已读文章不通知），应用自测在未打包的应用里真实显示通知、模拟点击选中文章、标为已读后通知消失。未打包应用注册通知会在用户配置里按 exe 路径写注册信息，自测结束时会注销。
 
-还没做：在本机安装运行 MSIX（等证书受信任）、正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
+**安装验证（用户信任了开发证书之后）**：`Add-AppxPackage` 为当前用户安装，签名有效。通过 `shell:AppsFolder` 启动（和开始菜单一样），进程从 `WindowsApps` 下的包目录运行，带包标识。数据被 Windows 重定向到包自己的目录（`%LOCALAPPDATA%\Packages\<包系列名>\LocalCache\Local\NetNewsWire`），用户真实的 `%LOCALAPPDATA%\NetNewsWire` 启动前后都不存在。应用运行时打开 `x-netnewswire-feed:https://xkcd.com/atom.xml`（只有本应用注册的协议，不会被别的阅读器接走），由清单里的协议声明激活并转交给正在运行的实例（仍然只有一个进程），打开了添加订阅源，地址为 `https://xkcd.com/atom.xml`。关闭窗口后走正常退出流程。
+
+还没做：正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
 
 ## 5. 里程碑
 
