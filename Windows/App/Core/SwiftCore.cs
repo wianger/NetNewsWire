@@ -112,6 +112,10 @@ public static class SwiftCore
     public static Task<OpenedURLAction> InterpretOpenedURLAsync(string url) =>
         RequestAsync("app.interpretOpenedURL", Serialize(new OpenedURLParams(url), CoreJsonContext.Default.OpenedURLParams), CoreJsonContext.Default.OpenedURLAction);
 
+    /// <summary>Turns a feed's new-article notifications on or off, as the Mac's Get Info checkbox does.</summary>
+    public static Task SetFeedNotificationsAsync(string accountID, string feedID, bool enabled) =>
+        RequestAsync("feeds.setNotifications", Serialize(new FeedNotificationsParams(accountID, feedID, enabled), CoreJsonContext.Default.FeedNotificationsParams), CoreJsonContext.Default.EmptyResult);
+
     // Accounts
 
     /// <summary>The sync services this build can add.</summary>

@@ -114,6 +114,17 @@ internal static class SelfTest
                 report["thumbnail"] = thumbnail.IsPending ? "pending" : $"{thumbnail.Width}x{thumbnail.Height}";
             }
 
+            // Notifications: shown for a new article, a click opens it, and reading it withdraws the notification.
+            var unreadInFeed = (await SwiftCore.FetchArticlesAsync(new ArticleSelection("feed", feed.AccountID, feed.FeedID))).FirstOrDefault(article => !article.IsRead);
+            if (unreadInFeed is not null)
+            {
+                var (available, shown, selected, removed) = await window.NotificationRoundTripForSelfTestAsync(feed, unreadInFeed);
+                report["notificationsAvailable"] = available;
+                report["notificationShown"] = shown;
+                report["notificationClickSelected"] = selected;
+                report["notificationRemovedWhenRead"] = removed;
+            }
+
             // Get Info: the name edited and saved, as in the Mac's inspector; then put back.
             var feedKey = $"feed:{feed.AccountID}:top:{feed.FeedID}";
             report["getInfoRenamed"] = await window.RenameInGetInfoForSelfTestAsync(feedKey, "Renamed in Get Info");
@@ -168,6 +179,7 @@ internal static class SelfTest
 
         report["events"] = events.Distinct().ToList();
         await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, SelfTestJsonContext.Default.DictionaryStringObject));
+        NotificationService.UnregisterForSelfTest();
         await App.QuitAsync();
     }
 
@@ -182,6 +194,7 @@ internal static class SelfTest
         report["openedURL"] = openedURL;
         report["addFeedURL"] = addFeedURL;
         await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, SelfTestJsonContext.Default.DictionaryStringObject));
+        NotificationService.UnregisterForSelfTest();
         await App.QuitAsync();
     }
 

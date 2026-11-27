@@ -33,6 +33,11 @@ extension CoreService {
 			await prepareToQuit()
 			return try Self.response(Empty())
 
+		case "feeds.setNotifications":
+			let params = try request.decode(FeedNotificationsParams.self)
+			try setFeedNotifications(params)
+			return try Self.response(Empty())
+
 		case "accounts.types":
 			return try Self.response(accountTypes())
 		case "accounts.add":
@@ -319,7 +324,7 @@ private extension CoreService {
 extension CoreService {
 
 	func feedInfo(_ feed: Feed, account: Account) -> FeedInfo {
-		FeedInfo(accountID: account.accountID, feedID: feed.feedID, name: feed.nameForDisplay, url: feed.url, homePageURL: feed.homePageURL, unreadCount: feed.unreadCount)
+		FeedInfo(accountID: account.accountID, feedID: feed.feedID, name: feed.nameForDisplay, url: feed.url, homePageURL: feed.homePageURL, unreadCount: feed.unreadCount, notifiesAboutNewArticles: feed.newArticleNotificationsEnabled)
 	}
 
 	func folderInfo(_ folder: Folder, account: Account) -> FolderInfo {

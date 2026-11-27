@@ -391,6 +391,44 @@ import Secrets
 		#expect(statusEvents.first?.articleIDs?.contains(article.articleID) == true)
 		#expect(Self.events.contains { $0.kind == .unreadCountsChanged })
 	}
+
+	@Test func newArticlesFromFeedsWithNotificationsOnAreAnnouncedAndReadOnesWithdrawn() async throws {
+		let feed = try await makeFeed(url: "https://notify.example.invalid/feed.xml", items: [("n1", "Notify me", Self.rfc822Date(hoursAgo: 1))])
+		defer {
+			removeFeed(feed)
+		}
+		let account = try #require(AccountManager.shared.existingAccount(accountID: "OnMyMac"))
+		let articles = await account.fetchArticlesAsync(.feed(feed))
+
+		// Off by default, as on the Mac: nothing to announce.
+		Self.events.removeAll()
+		Self.service.enqueueNewArticleNotices(articles)
+		await waitForEvents()
+		#expect(!Self.events.contains { $0.kind == .newArticles })
+
+		_ = try await call("feeds.setNotifications", params: #"{"accountID": "OnMyMac", "feedID": "\#(feed.feedID)", "enabled": true}"#, as: EmptyResult.self)
+		let sidebar = try await call("sidebar.get", as: SidebarSnapshot.self)
+		#expect(sidebar.accounts.flatMap(\.feeds).first { $0.feedID == feed.feedID }?.notifiesAboutNewArticles == true)
+
+		Self.events.removeAll()
+		Self.service.enqueueNewArticleNotices(articles)
+		await waitForEvents()
+		let notice = try #require(Self.events.first { $0.kind == .newArticles }?.newArticles?.first)
+		#expect(notice.feedID == feed.feedID && !notice.feedName.isEmpty)
+		#expect(notice.title == "Notify me")
+
+		// Marked read: its notification is withdrawn.
+		Self.events.removeAll()
+		_ = try await call("articles.mark", params: #"{"articles": [{"accountID": "OnMyMac", "articleID": "\#(notice.articleID)"}], "key": "read", "flag": true}"#, as: EmptyResult.self)
+		await waitForEvents()
+		#expect(Self.events.first { $0.kind == .articlesRead }?.articleIDs == [notice.articleID])
+
+		// Read articles aren't announced.
+		Self.events.removeAll()
+		Self.service.enqueueNewArticleNotices(await account.fetchArticlesAsync(.feed(feed)))
+		await waitForEvents()
+		#expect(!Self.events.contains { $0.kind == .newArticles })
+	}
 }
 
 // MARK: - Helpers

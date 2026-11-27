@@ -18,6 +18,7 @@ public partial class App : Application
     internal static void HandleActivation(AppActivationArguments activation)
     {
         var url = Program.OpenedURL(activation);
+        var notificationArguments = (activation.Data as Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs)?.Arguments;
         uiQueue?.TryEnqueue(async () =>
         {
             if (mainWindow is null)
@@ -25,7 +26,11 @@ public partial class App : Application
                 return;
             }
             mainWindow.BringToFront();
-            if (url is not null)
+            if (notificationArguments is not null)
+            {
+                await mainWindow.HandleNotificationAsync(notificationArguments);
+            }
+            else if (url is not null)
             {
                 await mainWindow.OpenURLAsync(url);
             }
@@ -63,19 +68,34 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         uiQueue = DispatcherQueue.GetForCurrentThread();
-        SwiftCore.Start(uiQueue);
-        var mainWindow = new MainWindow();
-        App.mainWindow = mainWindow;
-        mainWindow.Activate();
-
-        // Opened with a URL, such as a feed: link, when it wasn't running.
-        if (Program.OpenedURL(AppInstance.GetCurrent().GetActivatedEventArgs()) is { } openedURL)
+        // Before anything else, so a notification click that launched the app is delivered.
+        NotificationService.Invoked += arguments => uiQueue?.TryEnqueue(async () =>
         {
-            _ = mainWindow.OpenURLAsync(openedURL);
+            if (mainWindow is not null)
+            {
+                mainWindow.BringToFront();
+                await mainWindow.HandleNotificationAsync(arguments);
+            }
+        });
+        NotificationService.Register();
+        SwiftCore.Start(uiQueue);
+        var window = new MainWindow();
+        mainWindow = window;
+        window.Activate();
+
+        // Opened with a URL, such as a feed: link, or by a notification click, when it wasn't running.
+        var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
+        if (activation.Data is Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs notificationActivation)
+        {
+            _ = window.HandleNotificationAsync(notificationActivation.Arguments);
+        }
+        else if (Program.OpenedURL(activation) is { } openedURL)
+        {
+            _ = window.OpenURLAsync(openedURL);
         }
 
         // Closing the window quits, after the core has saved and sent its changes.
-        mainWindow.AppWindow.Closing += (sender, closingArgs) =>
+        window.AppWindow.Closing += (sender, closingArgs) =>
         {
             closingArgs.Cancel = true;
             _ = QuitAsync();
@@ -87,14 +107,14 @@ public partial class App : Application
         var index = Array.IndexOf(commandLine, "--selftest");
         if (index >= 0 && commandLine.Length > index + 2)
         {
-            _ = SelfTest.RunAsync(mainWindow, commandLine[index + 1], commandLine[index + 2]);
+            _ = SelfTest.RunAsync(window, commandLine[index + 1], commandLine[index + 2]);
         }
 
         // `NetNewsWire.exe --selftest-activation <report-path>`: waits for a second launch to hand it a URL. See SelfTest.
         var activationIndex = Array.IndexOf(commandLine, "--selftest-activation");
         if (activationIndex >= 0 && commandLine.Length > activationIndex + 1)
         {
-            _ = SelfTest.RunActivationAsync(mainWindow, commandLine[activationIndex + 1]);
+            _ = SelfTest.RunActivationAsync(window, commandLine[activationIndex + 1]);
         }
 
         // `NetNewsWire.exe --selftest-sync <report-path>`: syncs with the server named in the environment. See SyncSelfTest.

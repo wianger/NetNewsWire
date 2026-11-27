@@ -158,6 +158,12 @@ public sealed partial class MainWindow : Window
                         await Timeline.RefreshAsync(); // New thumbnail URLs for those articles.
                     }
                     break;
+                case "newArticles" when coreEvent.NewArticles is { Count: > 0 } notices:
+                    NotificationService.Show(notices);
+                    break;
+                case "articlesRead" when coreEvent.ArticleIDs is { Count: > 0 } readIDs:
+                    await NotificationService.RemoveAsync(readIDs);
+                    break;
                 case "refreshProgress" when coreEvent.Progress is { } progress:
                     StatusText.Text = progress.IsComplete ? "" : $"Refreshing — {progress.NumberCompleted} of {progress.NumberOfTasks}";
                     break;
@@ -568,6 +574,84 @@ public sealed partial class MainWindow : Window
 
     private string? lastOpenedURLForSelfTest;
 
+    // MARK: - Notifications
+
+    /// <summary>
+    /// A click on a new-article notification or one of its buttons. Open shows the article in its feed,
+    /// as the Mac does; Mark as Read and Star change its status.
+    /// </summary>
+    internal async Task HandleNotificationAsync(IDictionary<string, string> arguments)
+    {
+        if (!arguments.TryGetValue("accountID", out var accountID) || !arguments.TryGetValue("articleID", out var articleID))
+        {
+            return;
+        }
+        var reference = new ArticleReference(accountID, articleID);
+        try
+        {
+            switch (arguments.TryGetValue(NotificationService.ActionKey, out var action) ? action : NotificationService.OpenAction)
+            {
+                case NotificationService.MarkReadAction:
+                    await SwiftCore.MarkArticlesAsync([reference], read: true);
+                    break;
+                case NotificationService.StarAction:
+                    await SwiftCore.StarArticlesAsync([reference], starred: true);
+                    break;
+                default:
+                    arguments.TryGetValue("feedID", out var feedID);
+                    await ShowArticleAsync(accountID, feedID, articleID);
+                    break;
+            }
+        }
+        catch (CoreException e)
+        {
+            ShowError(e);
+        }
+    }
+
+    /// <summary>Selects the article's feed in the sidebar, then the article in the timeline.</summary>
+    private async Task ShowArticleAsync(string accountID, string? feedID, string articleID)
+    {
+        if (Sidebar.AllNodes.FirstOrDefault(node => node.AccountID == accountID && node.Feed?.FeedID == feedID) is not { } node)
+        {
+            return;
+        }
+        SidebarTree.SelectedItem = node;
+        await ShowSelectionAsync(node.Selection);
+        if (Timeline.Items.FirstOrDefault(item => item.ArticleID == articleID && item.Summary.AccountID == accountID) is { } item)
+        {
+            TimelineList.SelectedItem = item;
+            TimelineList.ScrollIntoView(item);
+        }
+    }
+
+    /// <summary>
+    /// Shows a notification for a feed's newest article, clicks it, then marks the article read:
+    /// returns whether it showed, the article the click selected, and whether marking it read removed it.
+    /// </summary>
+    internal async Task<(bool Available, bool Shown, string? Selected, bool Removed)> NotificationRoundTripForSelfTestAsync(FeedInfo feed, ArticleSummary article)
+    {
+        if (!NotificationService.IsAvailable)
+        {
+            return (false, false, null, false);
+        }
+        var notice = new NewArticleNotice(feed.AccountID, article.ArticleID, feed.FeedID, feed.Name, article.Title, article.Summary);
+        NotificationService.Show([notice]);
+        await Task.Delay(1000);
+        var shownTags = await NotificationService.ShowingTagsAsync();
+
+        var arguments = new Dictionary<string, string> { ["action"] = "open", ["accountID"] = feed.AccountID, ["feedID"] = feed.FeedID, ["articleID"] = article.ArticleID };
+        await HandleNotificationAsync(arguments);
+        await Task.Delay(1000);
+        var selected = SelectedArticles.FirstOrDefault()?.ArticleID;
+
+        // Selecting it marked it read, which withdraws the notification (the core's articlesRead event).
+        await SwiftCore.MarkArticlesAsync([new ArticleReference(feed.AccountID, article.ArticleID)], read: true);
+        await Task.Delay(1500);
+        var remainingTags = await NotificationService.ShowingTagsAsync();
+        return (true, shownTags.Count > 0, selected == article.ArticleID ? article.Title : selected, shownTags.Count > remainingTags.Count);
+    }
+
     /// <summary>Waits for a URL handed over by another launch, then reports it and what Add Feed showed, and cancels.</summary>
     internal async Task<(string? OpenedURL, string? AddFeedURL)> WaitForOpenedURLForSelfTestAsync(TimeSpan timeout)
     {
@@ -770,6 +854,7 @@ public sealed partial class MainWindow : Window
 
         var panel = new StackPanel { Spacing = 12, MinWidth = 440, Children = { header } };
         panel.Children.Add(InfoRow("Home Page", feed.HomePageURL, "Open", "Open the home page in the browser", feed.HomePageURL is { } homePage ? () => LaunchAsync(homePage) : null));
+        var notifyBox = new CheckBox { Content = "Notify about new articles", IsChecked = feed.NotifiesAboutNewArticles, IsEnabled = NotificationService.IsAvailable };
         panel.Children.Add(InfoRow("Feed URL", feed.Url, "Copy", "Copy the feed URL", () =>
         {
             var package = new global::Windows.ApplicationModel.DataTransfer.DataPackage();
@@ -777,6 +862,8 @@ public sealed partial class MainWindow : Window
             global::Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
             return Task.CompletedTask;
         }));
+
+        panel.Children.Add(notifyBox);
 
         var dialog = new ContentDialog
         {
@@ -801,13 +888,18 @@ public sealed partial class MainWindow : Window
         }
         // As on the Mac, an empty name is ignored rather than clearing the feed's name.
         var name = nameBox.Text.Trim();
-        if (name.Length == 0 || name == feed.Name)
-        {
-            return;
-        }
+        var notify = notifyBox.IsChecked == true;
         try
         {
-            await SwiftCore.RenameFeedAsync(feed.AccountID, feed.FeedID, name);
+            if (notify != feed.NotifiesAboutNewArticles)
+            {
+                await SwiftCore.SetFeedNotificationsAsync(feed.AccountID, feed.FeedID, notify);
+                await Sidebar.ReloadAsync(); // Get Info reads the setting from the sidebar's feed.
+            }
+            if (name.Length > 0 && name != feed.Name)
+            {
+                await SwiftCore.RenameFeedAsync(feed.AccountID, feed.FeedID, name);
+            }
         }
         catch (CoreException e)
         {

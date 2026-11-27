@@ -84,6 +84,7 @@ internal static class SyncSelfTest
         }
 
         await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, SelfTestJsonContext.Default.DictionaryStringObject));
+        NotificationService.UnregisterForSelfTest();
         await App.QuitAsync();
     }
 

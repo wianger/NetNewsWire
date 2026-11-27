@@ -168,6 +168,8 @@ private extension CoreService {
 		/// Nil once a change to an unknown set of icons arrives.
 		var changedIconFeedIDs: Set<String>? = Set<String>()
 		var readyThumbnailURLs = Set<String>()
+		var newArticles = [NewArticleNotice]()
+		var readArticleIDs = Set<String>()
 		var thumbnailArticleIDs = Set<String>()
 	}
 
@@ -184,9 +186,15 @@ private extension CoreService {
 		center.addMainActorObserver(self, name: .StatusesDidChange) { service, notification in
 			let articleIDs = notification.userInfo?[Account.UserInfoKey.articleIDs] as? Set<String>
 			service.enqueueStatusesChanged(articleIDs)
+			if let articleIDs, notification.userInfo?[Account.UserInfoKey.statusKey] as? ArticleStatus.Key == .read, notification.userInfo?[Account.UserInfoKey.statusFlag] as? Bool == true {
+				service.enqueueArticlesRead(articleIDs)
+			}
 		}
-		center.addMainActorObserver(self, name: .AccountDidDownloadArticles) { service, _ in
+		center.addMainActorObserver(self, name: .AccountDidDownloadArticles) { service, notification in
 			service.enqueue(.articlesChanged)
+			if let articles = notification.userInfo?[Account.UserInfoKey.newArticles] as? Set<Article> {
+				service.enqueueNewArticleNotices(articles)
+			}
 		}
 		center.addMainActorObserver(self, name: .progressInfoDidChange, object: CombinedRefreshProgress.shared) { service, _ in
 			let progress = CombinedRefreshProgress.shared.progressInfo
@@ -228,7 +236,8 @@ private extension CoreService {
 		pendingEvents = PendingEvents()
 
 		// A stable order, so the app sees structure before counts before statuses.
-		let order: [CoreEvent.Kind] = [.sidebarChanged, .unreadCountsChanged, .statusesChanged, .articlesChanged, .iconsChanged, .thumbnailsChanged, .refreshProgress]
+		let order: [CoreEvent.Kind] = [.sidebarChanged, .unreadCountsChanged, .statusesChanged, .articlesRead, .articlesChanged, .newArticles, .iconsChanged, .thumbnailsChanged, .refreshProgress]
+		assert(Set(order).count == CoreEvent.Kind.allCases.count, "Every kind of event needs a place in the order")
 		for kind in order where pending.kinds.contains(kind) {
 			var event = CoreEvent(kind: kind)
 			switch kind {
@@ -241,6 +250,10 @@ private extension CoreService {
 			case .thumbnailsChanged:
 				event.urls = pending.readyThumbnailURLs.sorted()
 				event.articleIDs = pending.thumbnailArticleIDs.sorted()
+			case .newArticles:
+				event.newArticles = pending.newArticles
+			case .articlesRead:
+				event.articleIDs = pending.readArticleIDs.sorted()
 			case .sidebarChanged, .unreadCountsChanged, .articlesChanged:
 				break
 			}
@@ -250,6 +263,20 @@ private extension CoreService {
 }
 
 extension CoreService {
+
+	/// For CoreService+Notifications.
+	func enqueueNewArticles(_ notices: [NewArticleNotice]) {
+		guard !notices.isEmpty else {
+			return
+		}
+		pendingEvents.newArticles += notices
+		enqueue(.newArticles)
+	}
+
+	func enqueueArticlesRead(_ articleIDs: Set<String>) {
+		pendingEvents.readArticleIDs.formUnion(articleIDs)
+		enqueue(.articlesRead)
+	}
 
 	/// For CoreService+Thumbnails.
 	func enqueueThumbnailsChanged(urls: Set<String>, articleIDs: Set<String>) {

@@ -14,7 +14,7 @@ public sealed record AccountInfo(string AccountID, string Name, string Type, boo
 
 public sealed record FolderInfo(int FolderID, string Name, int UnreadCount, List<FeedInfo> Feeds);
 
-public sealed record FeedInfo(string AccountID, string FeedID, string Name, string Url, string? HomePageURL, int UnreadCount);
+public sealed record FeedInfo(string AccountID, string FeedID, string Name, string Url, string? HomePageURL, int UnreadCount, bool NotifiesAboutNewArticles);
 
 public sealed record ArticleSummary(
     string AccountID, string ArticleID, string FeedID, string FeedName,
@@ -40,7 +40,10 @@ public sealed record ArticleSelection(
 public sealed record ArticleReference(string AccountID, string ArticleID);
 
 /// <summary>Kind: sidebarChanged, unreadCountsChanged, statusesChanged, articlesChanged, refreshProgress.</summary>
-public sealed record CoreEvent(string Kind, List<string>? ArticleIDs, List<string>? FeedIDs, List<string>? Urls, RefreshProgress? Progress);
+public sealed record CoreEvent(string Kind, List<string>? ArticleIDs, List<string>? FeedIDs, List<string>? Urls, RefreshProgress? Progress, List<NewArticleNotice>? NewArticles);
+
+/// <summary>What a new-article notification shows.</summary>
+public sealed record NewArticleNotice(string AccountID, string ArticleID, string FeedID, string FeedName, string? Title, string? Summary);
 
 /// <summary>A timeline thumbnail as PNG, or pending: a thumbnailsChanged event with its URL follows.</summary>
 public sealed record ThumbnailResult(string? Png, int Width, int Height, bool IsPending);
@@ -107,6 +110,7 @@ internal sealed record ThemeNameParams(string Name);
 internal sealed record AddAccountParams(string Type, string? Username, string? Password, string? ApiToken, string? ApiURL);
 internal sealed record AccountIDParams(string AccountID);
 internal sealed record OpenedURLParams(string Url);
+internal sealed record FeedNotificationsParams(string AccountID, string FeedID, bool Enabled);
 internal sealed record SetAccountActiveParams(string AccountID, bool IsActive);
 internal sealed record FeedIconParams(string AccountID, string FeedID);
 
@@ -137,6 +141,7 @@ public sealed class CoreException(string code, string message) : Exception(messa
 [JsonSerializable(typeof(AddedAccount))]
 [JsonSerializable(typeof(OpenedURLAction))]
 [JsonSerializable(typeof(OpenedURLParams))]
+[JsonSerializable(typeof(FeedNotificationsParams))]
 [JsonSerializable(typeof(AddAccountParams))]
 [JsonSerializable(typeof(AccountIDParams))]
 [JsonSerializable(typeof(SetAccountActiveParams))]

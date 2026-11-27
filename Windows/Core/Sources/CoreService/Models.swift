@@ -53,6 +53,8 @@ public struct FeedInfo: Codable, Sendable, Equatable {
 	public let url: String
 	public let homePageURL: String?
 	public let unreadCount: Int
+	/// Notify about this feed's new articles, as the Mac's Get Info checkbox sets.
+	public let notifiesAboutNewArticles: Bool
 }
 
 // MARK: - Articles
@@ -138,7 +140,7 @@ public struct ArticleReference: Codable, Sendable, Hashable {
 /// Pushed to the app as things change. Several changes in one main-queue turn arrive
 /// as one event of each type, so a refresh doesn't flood the UI thread.
 public struct CoreEvent: Codable, Sendable, Equatable {
-	public enum Kind: String, Codable, Sendable {
+	public enum Kind: String, Codable, Sendable, CaseIterable {
 		/// Feeds, folders, or accounts were added, removed, renamed, or moved.
 		case sidebarChanged
 		/// Some unread count changed. Fetch the sidebar again.
@@ -153,6 +155,10 @@ public struct CoreEvent: Codable, Sendable, Equatable {
 		case iconsChanged
 		/// Thumbnails at `urls` are ready; the articles in `articleIDs` have a new thumbnail URL (fetch them again).
 		case thumbnailsChanged
+		/// A refresh brought `newArticles`: unread, from feeds whose notifications are on. Show a notification for each.
+		case newArticles
+		/// The articles in `articleIDs` were marked read. Remove their notifications, as the Mac does.
+		case articlesRead
 	}
 
 	public let kind: Kind
@@ -160,6 +166,7 @@ public struct CoreEvent: Codable, Sendable, Equatable {
 	public var feedIDs: [String]?
 	public var urls: [String]?
 	public var progress: RefreshProgress?
+	public var newArticles: [NewArticleNotice]?
 }
 
 public struct RefreshProgress: Codable, Sendable, Equatable {
@@ -167,4 +174,14 @@ public struct RefreshProgress: Codable, Sendable, Equatable {
 	public let numberCompleted: Int
 	public let numberRemaining: Int
 	public let isComplete: Bool
+}
+
+/// What a notification about a new article shows.
+public struct NewArticleNotice: Codable, Sendable, Equatable {
+	public let accountID: String
+	public let articleID: String
+	public let feedID: String
+	public let feedName: String
+	public let title: String?
+	public let summary: String?
 }

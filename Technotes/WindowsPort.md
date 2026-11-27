@@ -310,7 +310,14 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 - 按平台设置 `RuntimeIdentifier`，只带一种架构的原生文件。
 - 精简后应用自测、无 Swift 的 PATH 下自测、单实例转交都通过。
 
-还没做：安装并运行 MSIX（需要开启开发者模式，或在本机信任一个自签名证书）、签名和更新渠道（`.appinstaller` 或 Store）、通知（`AppNotificationManager`）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
+**签名**：用户允许后改用 `winapp` CLI（每次运行都设置 `WINAPP_CLI_TELEMETRY_OPTOUT=1`，不发送使用数据）：`winapp cert generate` 从清单读出发布者生成 90 天的自签名开发证书（随机密码，不用公开的默认密码；证书和密码放在仓库外），同时导出只含公钥的 `.cer`；`winapp sign` 给 MSIX 签名。信任这个证书需要管理员权限（UAC），由用户执行；安装选的是“信任一个证书”而不是“开发者模式”：前者只在一个证书存储里加一项，可以撤销，也覆盖了正式发布需要的签名环节；后者会放宽整个系统对未签名应用的限制。
+
+**新文章通知**：和 Mac 的 `UserNotificationManager` 一致：只为“新文章通知”打开了的订阅源里的新的未读文章发通知，文章标为已读时撤回通知。核心：`FeedInfo.notifiesAboutNewArticles`、`feeds.setNotifications`，事件 `newArticles`（附带订阅源名、标题、摘要）和 `articlesRead`（被标为已读的文章 ID）。应用：Windows App SDK 的 `AppNotificationManager`，通知带“标为已读”和“加星标”按钮；点击通知打开文章所在的订阅源并选中文章；应用没运行时点击通知会以 AppNotification 激活启动，和其他激活一样经单实例转交。获取信息里加了 Mac 的“新文章通知”复选框。
+- 通知按标签（文章 ID 的哈希；标签最长 64 字符）标识，不设分组：Windows 通知的身份是“标签 + 分组”，而撤回时只知道文章 ID。
+- 这轮发现的问题：核心的事件合并按固定顺序发出各类事件，新加的事件类型没放进顺序表就会被悄悄丢掉。现在加了断言：每种事件类型都必须在顺序表里。
+- 验证：核心测试（默认关闭时不通知；打开后通知；标为已读后撤回；已读文章不通知），应用自测在未打包的应用里真实显示通知、模拟点击选中文章、标为已读后通知消失。未打包应用注册通知会在用户配置里按 exe 路径写注册信息，自测结束时会注销。
+
+还没做：在本机安装运行 MSIX（等证书受信任）、正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
 
 ## 5. 里程碑
 
