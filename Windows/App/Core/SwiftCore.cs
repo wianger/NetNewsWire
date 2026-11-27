@@ -108,6 +108,10 @@ public static class SwiftCore
     public static Task DeleteThemeAsync(string name) =>
         RequestAsync("themes.delete", Serialize(new ThemeNameParams(name), CoreJsonContext.Default.ThemeNameParams), CoreJsonContext.Default.EmptyResult);
 
+    /// <summary>What a URL the app was opened with means, as the Mac decides: a feed to add, a theme, or nothing.</summary>
+    public static Task<OpenedURLAction> InterpretOpenedURLAsync(string url) =>
+        RequestAsync("app.interpretOpenedURL", Serialize(new OpenedURLParams(url), CoreJsonContext.Default.OpenedURLParams), CoreJsonContext.Default.OpenedURLAction);
+
     // Accounts
 
     /// <summary>The sync services this build can add.</summary>

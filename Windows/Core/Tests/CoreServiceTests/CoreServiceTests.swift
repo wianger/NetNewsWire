@@ -163,6 +163,22 @@ import Secrets
 		#expect(local.code == "invalidParams")
 	}
 
+	// MARK: - Opened URLs
+
+	@Test func openedURLsAreInterpretedAsOnTheMac() async throws {
+		func action(_ url: String) async throws -> OpenedURLActionResult {
+			try await call("app.interpretOpenedURL", params: try jsonObject(["url": url]), as: OpenedURLActionResult.self)
+		}
+		#expect(try await action("feed:https://example.com/feed.xml") == OpenedURLActionResult(kind: "addFeed", url: "https://example.com/feed.xml"))
+		#expect(try await action("feed://example.com/feed.xml") == OpenedURLActionResult(kind: "addFeed", url: "http://example.com/feed.xml"))
+		#expect(try await action("feeds://example.com/feed.xml") == OpenedURLActionResult(kind: "addFeed", url: "https://example.com/feed.xml"))
+		#expect(try await action("x-netnewswire-feed:https://example.com/feed.xml") == OpenedURLActionResult(kind: "addFeed", url: "https://example.com/feed.xml"))
+		#expect(try await action("https://example.com/feed.xml") == OpenedURLActionResult(kind: "addFeed", url: "https://example.com/feed.xml"))
+		#expect(try await action("netnewswire://theme/add?url=https://example.com/Sepia.nnwtheme.zip") == OpenedURLActionResult(kind: "installTheme", url: "https://example.com/Sepia.nnwtheme.zip"))
+		#expect(try await action("netnewswire://auth/feedly?code=abc").kind == "ignore")
+		#expect(try await action("not a url").kind == "ignore")
+	}
+
 	// MARK: - Articles
 
 	@Test func articlesAreFetchedNewestFirstAndMarked() async throws {
@@ -429,6 +445,11 @@ private struct AccountTypeResult: Decodable {
 private struct AddedAccountResult: Decodable {
 	let accountID: String
 	let name: String
+}
+
+private struct OpenedURLActionResult: Decodable, Equatable {
+	let kind: String
+	let url: String?
 }
 
 private struct ErrorBody: Decodable {

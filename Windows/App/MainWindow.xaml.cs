@@ -528,6 +528,61 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // MARK: - Opened URLs
+
+    /// <summary>Restores and activates the window, for a launch redirected to this instance.</summary>
+    internal void BringToFront()
+    {
+        if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter { State: Microsoft.UI.Windowing.OverlappedPresenterState.Minimized } presenter)
+        {
+            presenter.Restore();
+        }
+        Activate();
+    }
+
+    /// <summary>
+    /// A URL the app was opened with, such as a feed: link from a browser. As on the Mac, a feed
+    /// opens Add Feed with it filled in.
+    /// </summary>
+    internal async Task OpenURLAsync(string url)
+    {
+        lastOpenedURLForSelfTest = url;
+        try
+        {
+            var action = await SwiftCore.InterpretOpenedURLAsync(url);
+            switch (action.Kind)
+            {
+                case "addFeed" when action.Url is { } feedURL:
+                    await AddFeedAsync(feedURL);
+                    break;
+                case "installTheme":
+                    await ShowAlertAsync("Can’t Install the Theme", "Installing a theme from a link isn’t available on Windows yet. Download the theme, then choose Install Theme in Settings.");
+                    break;
+            }
+        }
+        catch (CoreException e)
+        {
+            ShowError(e);
+        }
+    }
+
+    private string? lastOpenedURLForSelfTest;
+
+    /// <summary>Waits for a URL handed over by another launch, then reports it and what Add Feed showed, and cancels.</summary>
+    internal async Task<(string? OpenedURL, string? AddFeedURL)> WaitForOpenedURLForSelfTestAsync(TimeSpan timeout)
+    {
+        addFeedURLForSelfTest = null;
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline && addFeedURLForSelfTest is null)
+        {
+            await Task.Delay(200);
+        }
+        await Task.Delay(300);
+        var addFeedURL = addFeedURLForSelfTest?.URL;
+        PressDialogButtonForSelfTest("Cancel");
+        return (lastOpenedURLForSelfTest, addFeedURL);
+    }
+
     // MARK: - Accounts
 
     /// <summary>

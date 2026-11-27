@@ -292,6 +292,26 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 
 另外，CI 用的测试计划 `NetNewsWire-CI.xctestplan` 补上了 ArticleRenderingTests。
 
+## 4.7 M5 进展（2026-11-27：打包、Swift 运行时、单实例与 URL）
+
+**Miniflux 真实服务器同步**：本机 Docker 运行 Miniflux 2.3.5 + PostgreSQL 17，用户名密码和 API 令牌两种登录都通过 `--selftest-sync` 验证：分类成为文件夹（All、Tech），未读数与服务器一致（含先在服务器上标为已读的 xkcd），应用里的已读/星标发到服务器，令牌那次从密码那次留下的状态开始。FreshRSS 和 Miniflux 都已对真实服务器验证。
+
+**调研结论**
+- Swift 运行时：Windows 上静态链接仍是实验性 SDK 的可选路径，且仍需 `dispatch.dll`、`BlocksRuntime.dll`；稳妥的做法是把运行时 DLL 随应用一起分发。
+- 单实例与协议：Windows App SDK 的 `AppInstance.FindOrRegisterForKey` + `RedirectActivationToAsync` 是官方做法；协议注册放在 MSIX 清单里最干净。
+- 打包与签名：单项目 MSIX（MSBuild）；微软新的 `winapp` CLI（公开预览，v0.8）能生成开发证书、打包、签名并支持 Azure Trusted Signing。已从微软官方 GitHub 发布下载并确认签名有效，但在本机运行它被权限检查拦下，所以目前用 MSBuild 的单项目打包。
+
+**随应用分发 Swift 运行时**：`build.ps1` 从核心 DLL 出发，用 `dumpbin /dependents` 沿着导入表找出运行时文件夹里真正用到的 DLL，复制到 `App/obj/SwiftRuntime/<平台>`，应用项目再拷到 exe 旁边。结果是 36 个运行时 DLL 里的 19 个（59 MB，其中 ICU 36 MB），包括 Swift 依赖的 VC++ 运行时；FoundationXML、Swift 测试和正则构建库等没用到的不带。验证：把所有 Swift 路径从 PATH 里去掉后，应用自测全部通过。
+
+**单实例与打开 URL**：`Program.Main` 按数据文件夹生成实例键（同一个数据库只能被一个进程打开），后启动的实例把激活（MSIX 的协议激活，或未打包时命令行上的 URL）转交给正在运行的实例后退出。URL 的含义由核心按 Mac 的 `getURL` 处理逻辑决定（`app.interpretOpenedURL`）：`feed:`、`feeds:`、`x-netnewswire-feed:` 和网页地址规范化后打开“添加订阅源”；`netnewswire://theme/…` 是主题（Windows 上暂时提示先下载再安装）；其他 `netnewswire:` 地址忽略（以后给 Feedly OAuth 回调用）。注意：转交过来的 `Arguments` 是整条命令行，开头是 exe 路径，需要先去掉。自测：第二个进程带 `feed:https://xkcd.com/atom.xml` 启动后立即以 0 退出，第一个进程打开了添加订阅源，地址为 `https://xkcd.com/atom.xml`。
+
+**MSIX 包**：`build.ps1 -Package` 生成未签名的 MSIX（`App/Package.appxmanifest`）：开发用的包标识，Mac 应用图标生成的整套 Windows 徽标和多尺寸 `.ico`，Mac 注册的四个协议（`netnewswire`、`feed`、`feeds`、`x-netnewswire-feed`），`internetClient` 和 `runFullTrust`。包大小从 127 MB 降到 69 MB：
+- Windows App SDK 1.8 起元包还带 AI、ML、Search、Widgets 组件（其中 ONNX Runtime 和 DirectML 三种架构共约 80 MB）。不能改成只引用组件包：CommunityToolkit 的 WinUI 包依赖元包，会被解析成 1.6，进而破坏 MSIX 工具的 `CustomBeforeMicrosoftCommonTargets` 导入链。做法是保留元包，对 AI、ML、Search、Widgets 和 `Microsoft.Windows.AI.MachineLearning` 直接引用并 `ExcludeAssets="all"`。
+- 按平台设置 `RuntimeIdentifier`，只带一种架构的原生文件。
+- 精简后应用自测、无 Swift 的 PATH 下自测、单实例转交都通过。
+
+还没做：安装并运行 MSIX（需要开启开发者模式，或在本机信任一个自签名证书）、签名和更新渠道（`.appinstaller` 或 Store）、通知（`AppNotificationManager`）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
+
 ## 5. 里程碑
 
 1. ~~**M0 Spike**~~ ✅ 已完成（见 §4）：一个最小 `@c` DLL 加 WinUI 3 壳，验证加载、回调、`@MainActor` 执行、异步刷新和 WebView2 渲染一篇文章。

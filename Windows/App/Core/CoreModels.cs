@@ -69,6 +69,9 @@ public sealed record AccountTypeInfo(string Type, string Name, bool NeedsAPIURL,
 
 public sealed record AddedAccount(string AccountID, string Name);
 
+/// <summary>What a URL the app was opened with means. Kind: addFeed, installTheme, or ignore.</summary>
+public sealed record OpenedURLAction(string Kind, string? Url);
+
 internal sealed record EmptyResult;
 
 /// <summary>
@@ -103,6 +106,7 @@ internal sealed record InstallThemeParams(string Path);
 internal sealed record ThemeNameParams(string Name);
 internal sealed record AddAccountParams(string Type, string? Username, string? Password, string? ApiToken, string? ApiURL);
 internal sealed record AccountIDParams(string AccountID);
+internal sealed record OpenedURLParams(string Url);
 internal sealed record SetAccountActiveParams(string AccountID, bool IsActive);
 internal sealed record FeedIconParams(string AccountID, string FeedID);
 
@@ -131,6 +135,8 @@ public sealed class CoreException(string code, string message) : Exception(messa
 [JsonSerializable(typeof(FetchArticlesParams))]
 [JsonSerializable(typeof(List<AccountTypeInfo>))]
 [JsonSerializable(typeof(AddedAccount))]
+[JsonSerializable(typeof(OpenedURLAction))]
+[JsonSerializable(typeof(OpenedURLParams))]
 [JsonSerializable(typeof(AddAccountParams))]
 [JsonSerializable(typeof(AccountIDParams))]
 [JsonSerializable(typeof(SetAccountActiveParams))]

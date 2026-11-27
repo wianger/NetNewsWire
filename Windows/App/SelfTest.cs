@@ -171,6 +171,20 @@ internal static class SelfTest
         await App.QuitAsync();
     }
 
+    /// <summary>
+    /// `NetNewsWire.exe --selftest-activation &lt;report-path&gt;`: the first instance. The test then launches the
+    /// app again with a feed: URL, which should be handed to this instance and open Add Feed.
+    /// </summary>
+    public static async Task RunActivationAsync(MainWindow window, string reportPath)
+    {
+        var report = new Dictionary<string, object?>();
+        var (openedURL, addFeedURL) = await window.WaitForOpenedURLForSelfTestAsync(TimeSpan.FromSeconds(60));
+        report["openedURL"] = openedURL;
+        report["addFeedURL"] = addFeedURL;
+        await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, SelfTestJsonContext.Default.DictionaryStringObject));
+        await App.QuitAsync();
+    }
+
     private static async Task<FeedInfo?> FindFeedAsync(string url)
     {
         var sidebar = await SwiftCore.GetSidebarAsync();

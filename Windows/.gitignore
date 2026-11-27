@@ -2,3 +2,4 @@ Core/.build/
 App/bin/
 App/obj/
 *.user
+App/AppPackages/

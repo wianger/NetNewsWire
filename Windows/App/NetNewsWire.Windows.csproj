@@ -8,6 +8,9 @@
     <AssemblyName>NetNewsWire</AssemblyName>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- One architecture's native files per build, not every architecture's. -->
+    <RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
@@ -15,7 +18,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
+    <!-- Program.cs has Main, for single-instance redirection. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <ApplicationIcon>Assets\NetNewsWire.ico</ApplicationIcon>
+    <!-- MSIX tooling also for the unpackaged build, which then gets its resources.pri when published. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\*.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- The Windows counterpart of main_mac.js; main.js and newsfoot.js come from the core. -->
@@ -32,6 +44,19 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
+    <!--
+      Since 1.8 the metapackage also brings components the app doesn't use: AI and ML (ONNX Runtime and
+      DirectML, about 80 MB across three architectures), Search, and Widgets. Referencing them directly
+      with no assets keeps their files out of the app and the package. (Referencing the component
+      packages instead of the metapackage doesn't work: CommunityToolkit's WinUI packages depend on the
+      metapackage, which would then resolve to 1.6.)
+    -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.AI" Version="2.7.0" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="2.7.0" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Search" Version="2.7.0" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.7.0" ExcludeAssets="all" />
+    <!-- ML's own dependency, which carries ONNX Runtime and DirectML. -->
+    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" Version="2.5.96" ExcludeAssets="all" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.251219" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
@@ -40,13 +65,18 @@
   <!--
     The Swift core, built by Windows/Core (swift build -c release): NetNewsWireCore.dll, the module
     DLLs it links (RSCore.dll, Account.dll, …), and their resource bundles. build.ps1 passes the
-    folder as NetNewsWireCoreDir. The Swift runtime itself comes from the Swift redistributable.
+    folder as NetNewsWireCoreDir, and the Swift runtime DLLs the core uses as SwiftRuntimeDir, so the
+    app carries its own runtime.
   -->
   <PropertyGroup>
     <NetNewsWireCoreDir Condition="'$(NetNewsWireCoreDir)' == ''">$(MSBuildThisFileDirectory)..\Core\.build\release\</NetNewsWireCoreDir>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(NetNewsWireCoreDir)*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>%(Filename)%(Extension)</Link>
+    </None>
+    <None Include="$(SwiftRuntimeDir)*.dll" Condition="'$(SwiftRuntimeDir)' != ''">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>%(Filename)%(Extension)</Link>
     </None>

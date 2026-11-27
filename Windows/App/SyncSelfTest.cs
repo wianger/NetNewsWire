@@ -105,9 +105,10 @@ internal static class SyncSelfTest
         return account;
     }
 
+    /// <summary>Each feed with its unread count, prefixed by its folder's name if it's in one.</summary>
     private static List<string> Describe(AccountInfo account) =>
-        account.Feeds.Concat(account.Folders.SelectMany(folder => folder.Feeds))
-            .Select(feed => $"{feed.Name}: {feed.UnreadCount} unread")
+        account.Feeds.Select(feed => $"{feed.Name}: {feed.UnreadCount} unread")
+            .Concat(account.Folders.SelectMany(folder => folder.Feeds.Select(feed => $"{folder.Name}/{feed.Name}: {feed.UnreadCount} unread")))
             .OrderBy(text => text, StringComparer.Ordinal)
             .ToList();
 }
