@@ -26,8 +26,16 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
+      # Only what the Windows build uses: some App Store screenshot paths contain '"', which Windows
+      # doesn't allow in file names, so a full checkout fails.
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            Modules
+            Windows
+            Themes
+            buildscripts
 
       # Pinned to the v1.14.2 commit: a third-party action.
       - name: Install Swift
