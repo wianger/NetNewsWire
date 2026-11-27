@@ -319,6 +319,8 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 
 **安装验证（用户信任了开发证书之后）**：`Add-AppxPackage` 为当前用户安装，签名有效。通过 `shell:AppsFolder` 启动（和开始菜单一样），进程从 `WindowsApps` 下的包目录运行，带包标识。数据被 Windows 重定向到包自己的目录（`%LOCALAPPDATA%\Packages\<包系列名>\LocalCache\Local\NetNewsWire`），用户真实的 `%LOCALAPPDATA%\NetNewsWire` 启动前后都不存在。应用运行时打开 `x-netnewswire-feed:https://xkcd.com/atom.xml`（只有本应用注册的协议，不会被别的阅读器接走），由清单里的协议声明激活并转交给正在运行的实例（仍然只有一个进程），打开了添加订阅源，地址为 `https://xkcd.com/atom.xml`。关闭窗口后走正常退出流程。
 
+**定时刷新**：Mac 的两个计时器（`Shared/Timer`）用 Objective-C 的选择器，不能共享，于是在核心里用 Swift 并发按同样的规则重写（`CoreService+Timers.swift`）：账户按用户设置的间隔刷新（手动、30 分钟、1/2/4/8 小时，默认 2 小时，启动时先刷新一次），状态每 2 分钟同步一次，没事可做时退到 30 分钟，一有状态变更排队就回到 2 分钟。按墙上时钟判断是否到期（每分钟至少看一次），电脑睡眠错过的刷新醒来后很快补上。设置里加了“刷新订阅源”。自测运行时不在启动时刷新（自测自己刷新）。核心测试覆盖了间隔、手动、立即刷新和空闲退避。
+
 还没做：正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
 
 ## 5. 里程碑

@@ -35,6 +35,18 @@ internal sealed class AppSettings
 
     public static readonly string[] TimelineThumbnailModeNames = ["None", "Small", "Large"];
 
+    /// <summary>The Mac's refresh intervals (Shared/Timer/RefreshInterval.swift), in seconds; 0 is Manually.</summary>
+    public static readonly string[] RefreshIntervals = ["manually", "every30Minutes", "everyHour", "every2Hours", "every4Hours", "every8Hours"];
+
+    public static readonly string[] RefreshIntervalNames = ["Manually", "Every 30 Minutes", "Every Hour", "Every 2 Hours", "Every 4 Hours", "Every 8 Hours"];
+
+    private static readonly int[] RefreshIntervalSeconds = [0, 30 * 60, 60 * 60, 2 * 60 * 60, 4 * 60 * 60, 8 * 60 * 60];
+
+    /// <summary>As on the Mac, every two hours by default.</summary>
+    public string RefreshInterval { get; set; } = "every2Hours";
+
+    public int RefreshIntervalInSeconds => RefreshIntervalSeconds[Math.Max(0, Array.IndexOf(RefreshIntervals, RefreshInterval))];
+
     /// <summary>The Mac timeline's sort fields. Saved per window on the Mac; for the app here.</summary>
     public static readonly string[] SortKeys = ["date", "feed", "title", "unread", "starred"];
 
@@ -99,6 +111,10 @@ internal sealed class AppSettings
                 if (!TimelineThumbnailModes.Contains(settings.TimelineThumbnails))
                 {
                     settings.TimelineThumbnails = "none";
+                }
+                if (!RefreshIntervals.Contains(settings.RefreshInterval))
+                {
+                    settings.RefreshInterval = "every2Hours";
                 }
                 if (!SortKeys.Contains(settings.TimelineSortKey))
                 {

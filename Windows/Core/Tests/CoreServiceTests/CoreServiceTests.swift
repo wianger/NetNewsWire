@@ -163,6 +163,46 @@ import Secrets
 		#expect(local.code == "invalidParams")
 	}
 
+	// MARK: - Timers
+
+	@Test func refreshSchedulerRunsAtItsIntervalAndStopsWhenManual() async throws {
+		let counter = Counter()
+		let scheduler = RefreshScheduler(checkInterval: 0.05) {
+			counter.count += 1
+		}
+		scheduler.interval = 0.2
+		try await Task.sleep(for: .seconds(0.75))
+		#expect((2...4).contains(counter.count), "runs every 0.2 seconds: \(counter.count)")
+
+		scheduler.interval = nil // Manually
+		let stoppedAt = counter.count
+		try await Task.sleep(for: .seconds(0.5))
+		#expect(counter.count == stoppedAt)
+
+		scheduler.fireNow()
+		#expect(counter.count == stoppedAt + 1, "a refresh now, as at launch")
+		scheduler.stop()
+	}
+
+	@Test func statusSyncBacksOffWhenIdleAndReturnsWhenAStatusIsQueued() async throws {
+		let syncs = Counter()
+		let scheduler = StatusSyncScheduler {
+			syncs.count += 1
+			return false // Nothing to send.
+		}
+		#expect(StatusSyncScheduler.normalInterval == 120 && StatusSyncScheduler.idleBackoffInterval == 1800, "the Mac's intervals")
+
+		scheduler.start()
+		#expect(!scheduler.isIdle)
+		// Nothing to send: after a sync, it backs off.
+		await scheduler.syncNowForTesting()
+		#expect(syncs.count == 1 && scheduler.isIdle)
+		// A status change queued, as marking an article read posts: back to the normal interval.
+		NotificationCenter.default.post(name: .AccountDidQueueArticleStatuses, object: nil)
+		#expect(!scheduler.isIdle)
+		scheduler.stop()
+	}
+
 	// MARK: - Opened URLs
 
 	@Test func openedURLsAreInterpretedAsOnTheMac() async throws {
@@ -488,6 +528,10 @@ private struct AddedAccountResult: Decodable {
 private struct OpenedURLActionResult: Decodable, Equatable {
 	let kind: String
 	let url: String?
+}
+
+@MainActor private final class Counter {
+	var count = 0
 }
 
 private struct ErrorBody: Decodable {

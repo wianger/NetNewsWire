@@ -1300,6 +1300,16 @@ public sealed partial class MainWindow : Window
         var installButton = new Button { Content = "Install Theme…" };
         var textSizeBox = new ComboBox { Header = "Article text size", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TextSizeNames };
         textSizeBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.TextSizes, settings.TextSize));
+        var refreshBox = new ComboBox { Header = "Refresh feeds", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.RefreshIntervalNames };
+        refreshBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.RefreshIntervals, settings.RefreshInterval));
+        refreshBox.SelectionChanged += (_, _) =>
+        {
+            if (refreshBox.SelectedIndex >= 0 && AppSettings.RefreshIntervals[refreshBox.SelectedIndex] != settings.RefreshInterval)
+            {
+                settings.RefreshInterval = AppSettings.RefreshIntervals[refreshBox.SelectedIndex];
+                settings.Save();
+            }
+        };
         var thumbnailsBox = new ComboBox { Header = "Timeline thumbnails", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TimelineThumbnailModeNames };
         thumbnailsBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.TimelineThumbnailModes, settings.TimelineThumbnails));
         thumbnailsBox.SelectionChanged += (_, _) =>
@@ -1399,6 +1409,7 @@ public sealed partial class MainWindow : Window
                 MinWidth = 400,
                 Children =
                 {
+                    refreshBox,
                     themeBox,
                     themeCredit,
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { installButton, deleteButton } },

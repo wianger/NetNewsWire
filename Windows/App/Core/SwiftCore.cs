@@ -116,6 +116,13 @@ public static class SwiftCore
     public static Task SetFeedNotificationsAsync(string accountID, string feedID, bool enabled) =>
         RequestAsync("feeds.setNotifications", Serialize(new FeedNotificationsParams(accountID, feedID, enabled), CoreJsonContext.Default.FeedNotificationsParams), CoreJsonContext.Default.EmptyResult);
 
+    /// <summary>
+    /// Starts or changes the Mac's refresh timers: every account at the interval (0: only when asked), and
+    /// statuses every two minutes. <paramref name="refreshNow"/> refreshes at once, as the Mac does at launch.
+    /// </summary>
+    public static Task ScheduleRefreshAsync(int intervalSeconds, bool refreshNow) =>
+        RequestAsync("refresh.schedule", Serialize(new RefreshScheduleParams(intervalSeconds, refreshNow), CoreJsonContext.Default.RefreshScheduleParams), CoreJsonContext.Default.EmptyResult);
+
     // Accounts
 
     /// <summary>The sync services this build can add.</summary>

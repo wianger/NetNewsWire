@@ -110,6 +110,7 @@ internal sealed record ThemeNameParams(string Name);
 internal sealed record AddAccountParams(string Type, string? Username, string? Password, string? ApiToken, string? ApiURL);
 internal sealed record AccountIDParams(string AccountID);
 internal sealed record OpenedURLParams(string Url);
+internal sealed record RefreshScheduleParams(int? IntervalSeconds, bool? RefreshNow);
 internal sealed record FeedNotificationsParams(string AccountID, string FeedID, bool Enabled);
 internal sealed record SetAccountActiveParams(string AccountID, bool IsActive);
 internal sealed record FeedIconParams(string AccountID, string FeedID);
@@ -141,6 +142,7 @@ public sealed class CoreException(string code, string message) : Exception(messa
 [JsonSerializable(typeof(AddedAccount))]
 [JsonSerializable(typeof(OpenedURLAction))]
 [JsonSerializable(typeof(OpenedURLParams))]
+[JsonSerializable(typeof(RefreshScheduleParams))]
 [JsonSerializable(typeof(FeedNotificationsParams))]
 [JsonSerializable(typeof(AddAccountParams))]
 [JsonSerializable(typeof(AccountIDParams))]

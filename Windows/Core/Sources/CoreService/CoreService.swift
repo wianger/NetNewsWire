@@ -33,6 +33,14 @@ import Account
 
 	/// Set by `app.prepareToQuit`. No events after it: the app is tearing down its UI thread.
 	private(set) var isQuitting = false
+
+	/// The Mac's AccountRefreshTimer and ArticleStatusSyncTimer. See CoreService+Timers.
+	private(set) lazy var refreshScheduler = RefreshScheduler { [weak self] in
+		self?.accountManager.refreshAllWithoutWaiting()
+	}
+	private(set) lazy var statusSyncScheduler = StatusSyncScheduler { [weak self] in
+		await self?.accountManager.syncArticleStatusAll() ?? false
+	}
 	private var isFlushScheduled = false
 	private var isStarted = false
 
@@ -302,6 +310,8 @@ extension CoreService {
 	/// up to two seconds. Events stop first, since the app is about to tear down its UI thread.
 	func prepareToQuit() async {
 		isQuitting = true
+		refreshScheduler.stop()
+		statusSyncScheduler.stop()
 		accountManager.saveAllIfNeeded()
 
 		let sending = StatusSendState()

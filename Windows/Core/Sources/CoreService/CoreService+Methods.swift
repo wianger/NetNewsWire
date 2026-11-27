@@ -29,6 +29,10 @@ extension CoreService {
 		case "app.interpretOpenedURL":
 			let params = try request.decode(OpenedURLParams.self)
 			return try Self.response(interpretOpenedURL(params))
+		case "refresh.schedule":
+			let params = try request.decode(RefreshScheduleParams.self)
+			scheduleRefresh(params)
+			return try Self.response(Empty())
 		case "app.prepareToQuit":
 			await prepareToQuit()
 			return try Self.response(Empty())

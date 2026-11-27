@@ -94,6 +94,21 @@ public partial class App : Application
             _ = window.OpenURLAsync(openedURL);
         }
 
+        // The refresh timers, as on the Mac: a refresh now (but not under a self-test, which refreshes
+        // itself), then at the user's interval; and when the setting changes.
+        var commandLineArguments = Environment.GetCommandLineArgs();
+        var isSelfTest = commandLineArguments.Any(argument => argument.StartsWith("--selftest", StringComparison.Ordinal));
+        _ = SwiftCore.ScheduleRefreshAsync(AppSettings.Current.RefreshIntervalInSeconds, refreshNow: !isSelfTest);
+        var scheduledInterval = AppSettings.Current.RefreshIntervalInSeconds;
+        AppSettings.Changed += () =>
+        {
+            if (AppSettings.Current.RefreshIntervalInSeconds != scheduledInterval)
+            {
+                scheduledInterval = AppSettings.Current.RefreshIntervalInSeconds;
+                _ = SwiftCore.ScheduleRefreshAsync(scheduledInterval, refreshNow: false);
+            }
+        };
+
         // Closing the window quits, after the core has saved and sent its changes.
         window.AppWindow.Closing += (sender, closingArgs) =>
         {
