@@ -19,7 +19,8 @@ let package = Package(
 			name: "RSWeb",
 			dependencies: [
 				"RSParser",
-				"RSCore"
+				"RSCore",
+				.target(name: "CWinHTTP", condition: .when(platforms: [.windows]))
 			],
 			swiftSettings: [
 				.unsafeFlags(["-warnings-as-errors"]),
@@ -27,8 +28,18 @@ let package = Package(
 				.enableUpcomingFeature("InferIsolatedConformances")
 			]
 		),
+		// WinHTTP for the Windows transport (WinHTTPClient). Empty elsewhere.
+		.target(
+			name: "CWinHTTP",
+			linkerSettings: [
+				.linkedLibrary("winhttp", .when(platforms: [.windows]))
+			]
+		),
 		.testTarget(
 			name: "RSWebTests",
-			dependencies: ["RSWeb"])
+			dependencies: [
+				"RSWeb",
+				.target(name: "CWinHTTP", condition: .when(platforms: [.windows]))
+			])
 	]
 )

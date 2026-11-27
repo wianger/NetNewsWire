@@ -16,7 +16,9 @@ import RSDatabase
 import RSParser
 import RSWeb
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 import Secrets
 
 public enum FeedbinAccountDelegateError: String, Error, Sendable {
@@ -61,7 +63,7 @@ public enum FeedbinAccountDelegateError: String, Error, Sendable {
 		syncDatabase = SyncDatabase(databasePath: databaseFilePath)
 		caller = FeedbinAPICaller()
 
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refreshProgress)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refreshProgress) { $0.progressInfoDidChange($1) }
 	}
 
 	func receiveRemoteNotification(userInfo: [AnyHashable: Any]) async {
@@ -513,7 +515,7 @@ public enum FeedbinAccountDelegateError: String, Error, Sendable {
 	}
 
 	// MARK: - Notifications
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refreshProgress.progressInfo
 	}
 }
@@ -623,7 +625,7 @@ private extension FeedbinAccountDelegate {
 
 	func syncFolders(_ account: Account, _ tags: [FeedbinTag]?) {
 		guard let tags = tags else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Feedbin: Syncing folders \(tags.count) tags")
 
@@ -661,7 +663,7 @@ private extension FeedbinAccountDelegate {
 	func syncFeeds(_ account: Account, _ subscriptions: [FeedbinSubscription]?) {
 
 		guard let subscriptions = subscriptions else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Feedbin: Syncing feeds with \(subscriptions.count) subscriptions")
 
@@ -713,7 +715,7 @@ private extension FeedbinAccountDelegate {
 	func syncFeedFolderRelationship(_ account: Account, _ taggings: [FeedbinTagging]?) {
 
 		guard let taggings = taggings else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Feedbin: Syncing taggings with \(taggings.count) taggings")
 

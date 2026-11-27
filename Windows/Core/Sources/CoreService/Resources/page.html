@@ -1,0 +1,27 @@
+<html dir="auto">
+	<head>
+		<meta charset="utf-8">
+		<meta name="color-scheme" content="light dark">
+		<title>[[title]]</title>
+		<style>
+			/* Themes name Apple's fonts. Map them to the Windows equivalents, so a theme's
+			   font choices still mean the system font and a monospace font. Without this,
+			   Chromium falls back to the locale's default font, which on a Chinese or Japanese
+			   system draws Latin punctuation full-width. */
+			@font-face { font-family: "-apple-system"; src: local("Segoe UI Variable Text"), local("Segoe UI"); font-weight: 400; }
+			@font-face { font-family: "-apple-system"; src: local("Segoe UI Semibold"); font-weight: 600; }
+			@font-face { font-family: "-apple-system"; src: local("Segoe UI Bold"); font-weight: 700 900; }
+			@font-face { font-family: "-apple-system"; src: local("Segoe UI Italic"); font-style: italic; font-weight: 400; }
+			@font-face { font-family: "-apple-system"; src: local("Segoe UI Bold Italic"); font-style: italic; font-weight: 700 900; }
+			@font-face { font-family: "ui-monospace"; src: local("Cascadia Mono"), local("Consolas"); }
+			@font-face { font-family: "Menlo"; src: local("Cascadia Mono"), local("Consolas"); }
+		</style>
+		<style>
+			[[style]]
+		</style>
+		<base href="[[baseURL]]">
+	</head>
+	<body>
+		[[body]]
+	</body>
+</html>

@@ -6,13 +6,21 @@
 //  Copyright © 2019 Ranchero Software. All rights reserved.
 //
 
+import Foundation
 #if os(macOS)
 import AppKit
-#else
+#elseif os(iOS)
 import UIKit
 #endif
 import Synchronization
 import RSCore
+
+#if os(Windows)
+/// The pixels luminance and grayscale are computed from. A Windows RSImage is already decoded pixels.
+typealias IconPixels = RSImage
+#else
+typealias IconPixels = CGImage
+#endif
 
 extension RSImage {
 	public static let maxIconPixelSize = Int(ceil(48.0 * RSScreen.maxScreenScale))
@@ -58,7 +66,7 @@ public final class IconImage: @unchecked Sendable {
 		self.isBackgroundSuppressed = isBackgroundSuppressed
 		self.cachedLuminanceType = Mutex(nil)
 		self.cachedGrayscaleIconImage = Mutex(nil)
-		if !isBackgroundSuppressed && Thread.isMainThread {
+		if !isBackgroundSuppressed && Thread.isMainQueue {
 			preloadLuminanceType()
 		}
 	}
@@ -77,7 +85,7 @@ public final class IconImage: @unchecked Sendable {
 		guard let image = RSImage.decodedImage(data: data) else {
 			return nil
 		}
-		let luminanceType = Self.luminanceType(for: Self.cgImage(of: image))
+		let luminanceType = Self.luminanceType(for: Self.pixels(of: image))
 		return IconImage(image, luminanceType: luminanceType)
 	}
 }
@@ -89,7 +97,7 @@ private extension IconImage {
 			return luminanceType
 		}
 
-		let luminanceType = IconImage.luminanceType(for: IconImage.cgImage(of: image))
+		let luminanceType = IconImage.luminanceType(for: IconImage.pixels(of: image))
 		cachedLuminanceType.withLock {
 			if $0 == nil {
 				$0 = luminanceType
@@ -104,9 +112,9 @@ private extension IconImage {
 			return
 		}
 
-		let cgImage = IconImage.cgImage(of: image)
+		let pixels = IconImage.pixels(of: image)
 		IconImage.luminanceQueue.async {
-			let luminanceType = IconImage.luminanceType(for: cgImage)
+			let luminanceType = IconImage.luminanceType(for: pixels)
 			self.cachedLuminanceType.withLock {
 				if $0 == nil {
 					$0 = luminanceType
@@ -119,17 +127,46 @@ private extension IconImage {
 		if isSymbol {
 			return IconImage(image, isSymbol: true, isBackgroundSuppressed: isBackgroundSuppressed, preferredColor: IconImage.grayscaleSymbolColor)
 		}
-		guard let cgImage = IconImage.cgImage(of: image), let grayscaleCGImage = IconImage.grayscaleCGImage(cgImage) else {
+		#if os(Windows)
+		guard let grayscaleImage = IconImage.grayscaleImage(image) else {
 			return self
 		}
+		#else
+		guard let cgImage = IconImage.pixels(of: image), let grayscaleCGImage = IconImage.grayscaleCGImage(cgImage) else {
+			return self
+		}
+		#endif
 		#if os(macOS)
 		let grayscaleImage = NSImage(cgImage: grayscaleCGImage, size: image.size)
-		#else
+		#elseif os(iOS)
 		let grayscaleImage = UIImage(cgImage: grayscaleCGImage, scale: image.scale, orientation: image.imageOrientation)
 		#endif
 		return IconImage(grayscaleImage, isBackgroundSuppressed: isBackgroundSuppressed)
 	}
 
+	// Rec. 709 luma weights. Premultiplied channels stay valid because the weights sum to 1.
+	static let redLumaWeight = 0.2126
+	static let greenLumaWeight = 0.7152
+	static let blueLumaWeight = 0.0722
+
+	#if os(Windows)
+	/// Sets each pixel’s red, green, and blue to its luminance, keeping alpha.
+	static func grayscaleImage(_ image: RSImage) -> RSImage? {
+		var pixels = image.bitmap.pixels
+		for offset in stride(from: 0, to: pixels.count, by: RSBitmap.bytesPerPixel) {
+			// BGRA
+			let luminance = redLumaWeight * Double(pixels[offset + 2]) + greenLumaWeight * Double(pixels[offset + 1]) + blueLumaWeight * Double(pixels[offset])
+			let gray = UInt8(min(luminance.rounded(), Double(pixels[offset + 3])))
+			pixels[offset] = gray
+			pixels[offset + 1] = gray
+			pixels[offset + 2] = gray
+		}
+		guard let bitmap = RSBitmap(width: image.bitmap.width, height: image.bitmap.height, pixels: pixels) else {
+			return nil
+		}
+		return RSImage(bitmap: bitmap)
+	}
+	#else
 	/// Draws into an RGBA buffer and sets each pixel’s red, green, and blue to its luminance, keeping alpha.
 	static func grayscaleCGImage(_ cgImage: CGImage) -> CGImage? {
 		let width = cgImage.width
@@ -147,17 +184,12 @@ private extension IconImage {
 			return nil
 		}
 
-		// Rec. 709 luma weights. Premultiplied channels stay valid because the weights sum to 1.
-		let redWeight = 0.2126
-		let greenWeight = 0.7152
-		let blueWeight = 0.0722
-
 		let pixels = data.bindMemory(to: UInt8.self, capacity: context.bytesPerRow * height)
 		for y in 0..<height {
 			let row = pixels + y * context.bytesPerRow
 			for x in 0..<width {
 				let pixel = row + x * bytesPerPixel
-				let luminance = redWeight * Double(pixel[0]) + greenWeight * Double(pixel[1]) + blueWeight * Double(pixel[2])
+				let luminance = redLumaWeight * Double(pixel[0]) + greenLumaWeight * Double(pixel[1]) + blueLumaWeight * Double(pixel[2])
 				let gray = UInt8(min(luminance.rounded(), Double(pixel[3])))
 				pixel[0] = gray
 				pixel[1] = gray
@@ -166,28 +198,33 @@ private extension IconImage {
 		}
 		return context.makeImage()
 	}
+	#endif
 
 	static var grayscaleSymbolColor: RSColor {
 		#if os(macOS)
 		NSColor.secondaryLabelColor
-		#else
+		#elseif os(iOS)
 		UIColor.secondaryLabel
+		#else
+		RSColor.secondaryLabel
 		#endif
 	}
 
-	static func cgImage(of image: RSImage) -> CGImage? {
+	static func pixels(of image: RSImage) -> IconPixels? {
 		#if os(macOS)
 		image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-		#else
+		#elseif os(iOS)
 		image.cgImage
+		#else
+		image
 		#endif
 	}
 
-	static func luminanceType(for cgImage: CGImage?) -> ImageLuminanceType {
-		guard let cgImage else {
+	static func luminanceType(for pixels: IconPixels?) -> ImageLuminanceType {
+		guard let pixels else {
 			return .regular
 		}
-		let luminanceType = cgImage.calculateLuminanceType() ?? .regular
+		let luminanceType = pixels.calculateLuminanceType() ?? .regular
 		return luminanceType
 	}
 }

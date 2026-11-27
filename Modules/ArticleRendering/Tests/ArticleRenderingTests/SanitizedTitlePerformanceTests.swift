@@ -1,6 +1,6 @@
 //
 //  SanitizedTitlePerformanceTests.swift
-//  NetNewsWireTests
+//  ArticleRenderingTests
 //
 //  Created by Brent Simmons on 4/21/26.
 //  Copyright © 2026 Ranchero Software, LLC. All rights reserved.
@@ -9,9 +9,9 @@
 import Foundation
 import XCTest
 
-@testable import NetNewsWire
+@testable import ArticleRendering
 
-/// Performance baseline for `ArticleStringFormatter.sanitizedTitle(_:forHTML:)`.
+/// Performance baseline for `ArticleTitleSanitizer.sanitizedTitle(_:forHTML:)`.
 ///
 /// Benchmark: release build, M1 Studio. Mean per-call time across
 /// a mix of eight titles, with `forHTML=true` and `forHTML=false`
@@ -40,10 +40,10 @@ final class SanitizedTitlePerformanceTests: XCTestCase {
 		measure {
 			for _ in 0..<10_000 {
 				for title in titles {
-					if let s = ArticleStringFormatter.sanitizedTitle(title, forHTML: true) {
+					if let s = ArticleTitleSanitizer.sanitizedTitle(title, forHTML: true) {
 						checksum &+= s.utf8.count
 					}
-					if let s = ArticleStringFormatter.sanitizedTitle(title, forHTML: false) {
+					if let s = ArticleTitleSanitizer.sanitizedTitle(title, forHTML: false) {
 						checksum &+= s.utf8.count
 					}
 				}

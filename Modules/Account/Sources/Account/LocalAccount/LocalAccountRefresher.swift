@@ -7,6 +7,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import ErrorLog
 import RSCore
 import RSParser
@@ -14,7 +17,9 @@ import RSWeb
 import Articles
 import ArticlesDatabase
 import ActivityLog
+#if canImport(os)
 import os
+#endif
 
 @MainActor protocol LocalAccountRefresherDelegate {
 	func localAccountRefresher(_ refresher: LocalAccountRefresher, articleChanges: ArticleChanges)
@@ -67,7 +72,7 @@ import os
 
 	private lazy var downloadSession: DownloadSession = {
 		let session = DownloadSession(delegate: self)
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: session)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: session) { $0.progressInfoDidChange($1) }
 		return session
 	}()
 
@@ -175,7 +180,7 @@ import os
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = downloadSession.progressInfo
 	}
 }
@@ -341,7 +346,7 @@ import os
 				return
 			}
 
-			assert(Thread.isMainThread)
+			assert(Thread.isMainQueue)
 			let articleChanges = await account.updateAsync(feed: feed, parsedFeed: parsedFeed)
 
 			self.newArticlesCount += articleChanges.new?.count ?? 0

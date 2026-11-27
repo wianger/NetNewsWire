@@ -5,9 +5,10 @@
 //  Created by Brent Simmons on 11/9/26.
 //
 
+import Foundation
 #if os(macOS)
 import AppKit
-#else
+#elseif os(iOS)
 import UIKit
 #endif
 import Testing
@@ -33,6 +34,19 @@ private extension GrayscaleIconImageTests {
 
 	static let dimension = 2
 
+#if os(Windows)
+	func halfTransparentRedImage() throws -> RSImage {
+		// Premultiplied BGRA: red at alpha 128.
+		let pixel: [UInt8] = [0, 0, 128, 128]
+		let bitmap = try #require(RSBitmap(width: Self.dimension, height: Self.dimension, pixels: Array([[UInt8]](repeating: pixel, count: Self.dimension * Self.dimension).joined())))
+		return RSImage(bitmap: bitmap)
+	}
+
+	func firstPixel(_ image: RSImage) throws -> (red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8) {
+		let pixels = image.bitmap.pixels
+		return (pixels[2], pixels[1], pixels[0], pixels[3])
+	}
+#else
 	func halfTransparentRedImage() throws -> RSImage {
 		let context = try #require(bitmapContext())
 		context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 128.0 / 255.0))
@@ -64,4 +78,5 @@ private extension GrayscaleIconImageTests {
 		let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
 		return CGContext(data: nil, width: Self.dimension, height: Self.dimension, bitsPerComponent: 8, bytesPerRow: Self.dimension * 4, space: colorSpace, bitmapInfo: bitmapInfo)
 	}
+#endif
 }

@@ -25,9 +25,7 @@ extension Notification.Name {
 	static var shared = IconImageCache()
 
 	private var smartFeedIconImageCache = [SidebarItemIdentifier: IconImage]()
-	private var lastFoundFeedIconImages = [SidebarItemIdentifier: IconImage]()
 	private var smallIconImageCache = [SidebarItemIdentifier: IconImage]()
-	private var authorIconImageCache = [Author: IconImage]()
 
 	init() {
 		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
@@ -104,14 +102,14 @@ extension Notification.Name {
 
 			if let feed = article.feed, let feedID = feed.sidebarItemID, !feedsSeen.contains(feedID) {
 				feedsSeen.insert(feedID)
-				_ = feedIcon(for: feed)
+				_ = FeedIconResolver.shared.feedIcon(for: feed)
 			}
 		}
 	}
 
 	func prefetchImagesForFeeds(_ feeds: [Feed]) {
 		for feed in feeds {
-			_ = feedIcon(for: feed)
+			_ = FeedIconResolver.shared.feedIcon(for: feed)
 		}
 	}
 
@@ -138,57 +136,16 @@ extension Notification.Name {
 
 	func emptyCache() {
 		smartFeedIconImageCache.removeAll()
-		lastFoundFeedIconImages.removeAll()
 		smallIconImageCache.removeAll()
-		authorIconImageCache.removeAll()
+		FeedIconResolver.shared.emptyCache()
 	}
 }
 
 private extension IconImageCache {
 
-	static func isNetNewsWireBrandedFeed(_ feed: Feed) -> Bool {
-		if let homePageURLString = feed.homePageURL, let homePageURL = URL(string: homePageURLString), let host = homePageURL.host {
-			if host == "nnw.ranchero.com" || host == "netnewswire.blog" || host.hasSuffix("netnewswire.com") {
-				return true
-			}
-		}
-		return feed.url.hasPrefix("https://ranchero.com/downloads/netnewswire")
-	}
-
-	/// Precedence: feed icon, home page icon, favicon.
-	/// Stops at the first source that has an icon or is still loading, so later sources aren’t looked up.
-	func feedIcon(for feed: Feed) -> IconLookup {
-		let feedIcon = FeedIconDownloader.shared.feedIcon(for: feed)
-		guard case .unavailable = feedIcon else {
-			return feedIcon
-		}
-		let homePageIcon = HomePageIconDownloader.shared.homePageIcon(for: feed)
-		guard case .unavailable = homePageIcon else {
-			return homePageIcon
-		}
-		return FaviconDownloader.shared.favicon(for: feed)
-	}
-
-	/// Precedence: feed icon, home page icon, favicon, generated favicon.
-	///
-	/// While a source is loading, or after the downloaders empty their caches, the icon found last is shown,
-	/// so an icon doesn’t flash. Without one, the generated favicon is shown.
-	/// <https://github.com/Ranchero-Software/NetNewsWire/issues/5376>
+	/// The feed’s icon, as FeedIconResolver picks it (shared with the Windows app).
 	func colorIconImage(for feed: Feed) -> IconImage {
-		if Self.isNetNewsWireBrandedFeed(feed) {
-			return IconImage.nnwFeedIcon
-		}
-		let feedID = feed.sidebarItemID
-		if let iconImage = feedIcon(for: feed).iconImage {
-			if let feedID {
-				lastFoundFeedIconImages[feedID] = iconImage
-			}
-			return iconImage
-		}
-		if let feedID, let iconImage = lastFoundFeedIconImages[feedID] {
-			return iconImage
-		}
-		return FaviconGenerator.shared.favicon(feed)
+		FeedIconResolver.shared.colorIconImage(for: feed, brandedIcon: IconImage.nnwFeedIcon)
 	}
 
 	func postFeedIconImageDidChange(_ feeds: Set<Feed>?) {
@@ -223,20 +180,10 @@ private extension IconImageCache {
 	}
 
 	func imageForAuthors(_ authors: Set<Author>?) -> IconImage? {
-		guard let authors = authors, authors.count == 1, let author = authors.first else {
-			return nil
-		}
-		return imageForAuthor(author)
+		FeedIconResolver.shared.avatar(for: authors).map(displayedIconImage)
 	}
 
 	func imageForAuthor(_ author: Author) -> IconImage? {
-		if let iconImage = AuthorAvatarDownloader.shared.avatar(for: author).iconImage {
-			authorIconImageCache[author] = iconImage
-			return displayedIconImage(iconImage)
-		}
-		guard let iconImage = authorIconImageCache[author] else {
-			return nil
-		}
-		return displayedIconImage(iconImage)
+		FeedIconResolver.shared.avatar(for: author).map(displayedIconImage)
 	}
 }

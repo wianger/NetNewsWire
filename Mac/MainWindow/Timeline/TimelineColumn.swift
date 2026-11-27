@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import Articles
 
 /// The columns of the timeline in column layout, in default order.
 enum TimelineColumn: String, CaseIterable {

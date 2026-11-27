@@ -1,0 +1,4 @@
+Core/.build/
+App/bin/
+App/obj/
+*.user

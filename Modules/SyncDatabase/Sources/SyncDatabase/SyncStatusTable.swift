@@ -9,7 +9,9 @@
 import Foundation
 import Articles
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 struct SyncStatusTable {
 	static let name = "syncStatus"

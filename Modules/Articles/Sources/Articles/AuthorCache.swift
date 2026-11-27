@@ -19,7 +19,7 @@ public final class AuthorCache: Sendable {
 
 	init() {
 		if !Platform.isRunningUnitTests {
-			NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+			NotificationCenter.default.addObserver(self, name: .lowMemory) { $0.handleLowMemory($1) }
 		}
 	}
 
@@ -39,7 +39,7 @@ public final class AuthorCache: Sendable {
 		cache.withLock { $0.removeAll() }
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		clear()
 	}
 }

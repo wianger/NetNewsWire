@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import RSCore
 
 struct DownloadCacheRecord: CacheRecord, Sendable {
@@ -25,15 +28,15 @@ nonisolated final class DownloadCache: Sendable {
 	private let cache = Cache<DownloadCacheRecord>(timeToLive: 60 * 3, timeBetweenCleanups: 60)
 
 	init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addObserver(self, name: .appDidGoToBackground) { $0.handleAppDidGoToBackground($1) }
+		NotificationCenter.default.addObserver(self, name: .lowMemory) { $0.handleLowMemory($1) }
 	}
 
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		cache.removeAll()
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		cache.removeAll()
 	}
 

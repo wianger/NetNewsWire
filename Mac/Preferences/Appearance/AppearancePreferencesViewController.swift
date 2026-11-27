@@ -7,6 +7,7 @@
 
 import AppKit
 import RSCore
+import ArticleRendering
 
 final class AppearancePreferencesViewController: NSViewController {
 

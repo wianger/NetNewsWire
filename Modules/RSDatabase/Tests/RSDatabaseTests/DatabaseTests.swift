@@ -8,7 +8,9 @@
 import Testing
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// Verifies that `FMResultSet.swiftString(forColumn:)` produces Swift
 /// strings with native UTF-8 storage for all inputs, including non-ASCII

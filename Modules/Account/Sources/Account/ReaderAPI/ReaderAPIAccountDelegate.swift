@@ -15,7 +15,9 @@ import RSParser
 import RSWeb
 import FeedFinder
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 import Secrets
 
 public enum ReaderAPIAccountDelegateError: LocalizedError {
@@ -101,7 +103,7 @@ final class ReaderAPIAccountDelegate: AccountDelegate {
 		self.caller.variant = variant
 		self.variant = variant
 
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refreshProgress)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refreshProgress) { $0.progressInfoDidChange($1) }
 	}
 
 	func receiveRemoteNotification(userInfo: [AnyHashable: Any]) async {
@@ -731,7 +733,7 @@ final class ReaderAPIAccountDelegate: AccountDelegate {
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refreshProgress.progressInfo
 	}
 }
@@ -790,7 +792,7 @@ private extension ReaderAPIAccountDelegate {
 		Self.logger.debug("ReaderAPIAccountDelegate: syncFolders")
 
 		guard let tags = tags else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		let folderTags: [ReaderAPITag]
 		if variant == .inoreader {
@@ -841,7 +843,7 @@ private extension ReaderAPIAccountDelegate {
 		Self.logger.debug("ReaderAPIAccountDelegate: syncFeeds — subscriptions.count \(subscriptions?.count ?? -1)")
 
 		guard let subscriptions = subscriptions else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		let subFeedIds = subscriptions.map { $0.feedID }
 
@@ -883,7 +885,7 @@ private extension ReaderAPIAccountDelegate {
 		Self.logger.debug("ReaderAPIAccountDelegate: syncFeedFolderRelationship — subscriptions.count \(subscriptions?.count ?? -1)")
 
 		guard let subscriptions = subscriptions else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		// Set up some structures to make syncing easier
 		let folderDict = externalIDToFolderDictionary(with: account.folders)

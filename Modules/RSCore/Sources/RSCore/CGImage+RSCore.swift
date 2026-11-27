@@ -6,11 +6,13 @@
 //
 
 import Foundation
-import CoreGraphics
 
 public enum ImageLuminanceType: Sendable {
 	case regular, bright, dark
 }
+
+#if canImport(CoreGraphics)
+import CoreGraphics
 
 public extension CGImage {
 
@@ -124,3 +126,5 @@ public extension CGImage {
 		return UInt8((pixelData >> 0) & 255)
 	}
 }
+
+#endif

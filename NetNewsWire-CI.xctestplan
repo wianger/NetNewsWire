@@ -78,6 +78,13 @@
     },
     {
       "target" : {
+        "containerPath" : "container:Modules\/ArticleRendering",
+        "identifier" : "ArticleRenderingTests",
+        "name" : "ArticleRenderingTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:Modules\/ActivityLog",
         "identifier" : "ActivityLogTests",
         "name" : "ActivityLogTests"

@@ -9,7 +9,9 @@
 
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 @MainActor final class AccountSettingsDatabase {
 

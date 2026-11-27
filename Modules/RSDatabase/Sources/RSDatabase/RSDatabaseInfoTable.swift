@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// Shared single-table key/value store kept in every database, under a common
 /// name, for RSDatabase-level bookkeeping. Currently it records the last

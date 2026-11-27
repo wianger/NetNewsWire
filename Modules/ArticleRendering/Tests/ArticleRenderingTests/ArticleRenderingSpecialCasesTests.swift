@@ -1,6 +1,6 @@
 //
 //  ArticleRenderingSpecialCasesTests.swift
-//  NetNewsWireTests
+//  ArticleRenderingTests
 //
 //  Created by Brent Simmons on 2026-07-06.
 //
@@ -8,7 +8,7 @@
 import Foundation
 import Testing
 
-@testable import NetNewsWire
+@testable import ArticleRendering
 
 @Suite struct ArticleRenderingSpecialCasesTests {
 

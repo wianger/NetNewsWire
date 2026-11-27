@@ -61,7 +61,7 @@ public enum AccountError: LocalizedError {
 			case WebserviceError.httpError(let status, _):
 				if isCredentialsError(status: status) {
 					let localizedText = NSLocalizedString("Your “%@” credentials are invalid or expired.", comment: "Invalid or expired")
-					return NSString.localizedStringWithFormat(localizedText as NSString, accountName) as String
+					return String.localizedStringWithFormat(localizedText, accountName as NSString)
 				} else {
 					return syncError(error, accountName, accountType)
 				}
@@ -128,7 +128,7 @@ private extension AccountError {
 
 	func syncError(_ error: Error, _ accountName: String, _ accountType: AccountType) -> String {
 		let localizedText = NSLocalizedString("An error occurred while syncing the %1$@ account “%2$@”: %3$@", comment: "Account sync error — account type, account name, error details")
-		return NSString.localizedStringWithFormat(localizedText as NSString, accountType.displayName, accountName, AccountError.detailedErrorMessage(error)) as String
+		return String.localizedStringWithFormat(localizedText, accountType.displayName as NSString, accountName as NSString, AccountError.detailedErrorMessage(error) as NSString)
 	}
 
 	func isCredentialsError(status: Int) -> Bool {

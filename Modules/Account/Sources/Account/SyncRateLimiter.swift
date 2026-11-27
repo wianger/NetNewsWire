@@ -6,7 +6,10 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
+import RSCore
 import RSWeb
 
 /// Pauses syncing after a rate-limit response until the server’s Retry-After (or a default) elapses.

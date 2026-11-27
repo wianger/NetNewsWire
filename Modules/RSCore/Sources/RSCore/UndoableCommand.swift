@@ -6,6 +6,8 @@
 //  Copyright © 2017 Ranchero Software, LLC. All rights reserved.
 //
 
+#if os(macOS) || os(iOS)
+
 import Foundation
 
 @MainActor public protocol UndoableCommand: AnyObject {
@@ -69,3 +71,5 @@ extension UndoableCommand {
 		undoableCommands = [UndoableCommand]()
 	}
 }
+
+#endif

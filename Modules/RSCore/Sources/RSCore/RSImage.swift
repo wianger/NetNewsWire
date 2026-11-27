@@ -6,9 +6,13 @@
 //  Copyright © 2019 Ranchero Software. All rights reserved.
 //
 
+#if os(macOS) || os(iOS)
+
 import Foundation
 import UniformTypeIdentifiers
+#if canImport(os)
 import os
+#endif
 
 #if os(macOS)
 import AppKit
@@ -288,3 +292,5 @@ private extension RSImage {
 	}
 #endif
 }
+
+#endif

@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// The result of a successful `Downloader` download.
 public struct DownloadResponse: Sendable {

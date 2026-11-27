@@ -7,9 +7,13 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import Articles
 
 /// One-time migration: populate the `articles.authors` JSON column from the

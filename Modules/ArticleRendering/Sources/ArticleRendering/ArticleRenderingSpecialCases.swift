@@ -1,6 +1,6 @@
 //
 //  ArticleRenderingSpecialCases.swift
-//  NetNewsWire
+//  ArticleRendering
 //
 //  Created by Brent Simmons on 4/25/25.
 //  Copyright © 2025 Ranchero Software. All rights reserved.
@@ -10,8 +10,9 @@ import Foundation
 import RSCore
 import RSWeb
 import Articles
+import Account
 
-struct ArticleRenderingSpecialCases {
+public struct ArticleRenderingSpecialCases {
 
 	// Content JavaScript is always disabled for articles from these domains,
 	// regardless of the user setting. Subdomains match too.
@@ -19,11 +20,11 @@ struct ArticleRenderingSpecialCases {
 
 	/// True when any of the URL strings (article link, feed URL, feed home page URL)
 	/// is on a domain whose article content must render without JavaScript.
-	static func shouldDisableJavaScript(urlStrings: [String?]) -> Bool {
+	public static func shouldDisableJavaScript(urlStrings: [String?]) -> Bool {
 		anyURLStringMatchesAnyDomain(urlStrings, domainsWithJavaScriptDisabled)
 	}
 
-	@MainActor static func shouldDisableJavaScript(for article: Article) -> Bool {
+	@MainActor public static func shouldDisableJavaScript(for article: Article) -> Bool {
 		shouldDisableJavaScript(urlStrings: [article.link, article.feed?.url, article.feed?.homePageURL])
 	}
 
@@ -106,7 +107,7 @@ struct ArticleRenderingSpecialCases {
 		return result
 	}
 
-	static func filterHTMLIfNeeded(baseURL: String, html: String) -> String {
+	public static func filterHTMLIfNeeded(baseURL: String, html: String) -> String {
 		var filteredHTML = removeLocationHrefRedirectScripts(html)
 
 		if let url = URL(string: baseURL), isVergeSpecialCase(url) {

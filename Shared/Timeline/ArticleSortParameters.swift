@@ -7,14 +7,11 @@
 //
 
 import Foundation
+import Articles
 
-/// The field a timeline is sorted by. Raw values double as table column identifiers, sort descriptor keys, and menu item identifiers.
-enum ArticleSortKey: String, Sendable {
-	case date
-	case feed
-	case title
-	case unread
-	case starred
+// ArticleSortKey and ArticleSortParameters are in the Articles module, shared with Windows.
+
+extension ArticleSortKey {
 
 	var localizedName: String {
 		switch self {
@@ -47,32 +44,5 @@ enum ArticleSortKey: String, Sendable {
 			descendingTitle = NSLocalizedString("Descending", comment: "Sort direction")
 		}
 		return ascending ? ascendingTitle : descendingTitle
-	}
-
-	/// Direction used the first time a field is chosen. Newest, unread, and starred go on top.
-	var sortsAscendingFirst: Bool {
-		switch self {
-		case .feed, .title:
-			true
-		case .date, .unread, .starred:
-			false
-		}
-	}
-
-	var firstDirection: ComparisonResult {
-		sortsAscendingFirst ? .orderedAscending : .orderedDescending
-	}
-}
-
-/// How one timeline is sorted. Each main window has its own. Every field but date uses date, newest first, as the secondary sort.
-struct ArticleSortParameters: Equatable, Sendable {
-
-	let key: ArticleSortKey
-	let direction: ComparisonResult
-
-	static let newestFirst = ArticleSortParameters(key: .date, direction: .orderedDescending)
-
-	func withDirection(_ direction: ComparisonResult) -> ArticleSortParameters {
-		ArticleSortParameters(key: key, direction: direction)
 	}
 }

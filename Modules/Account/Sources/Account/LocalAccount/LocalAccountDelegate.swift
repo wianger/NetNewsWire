@@ -7,6 +7,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import RSCore
 import RSParser
 import Articles
@@ -36,7 +39,7 @@ import Secrets
 	private lazy var refresher: LocalAccountRefresher = {
 		let refresher = LocalAccountRefresher()
 		refresher.delegate = self
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refresher)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refresher) { $0.progressInfoDidChange($1) }
 		return refresher
 	}()
 
@@ -172,7 +175,7 @@ import Secrets
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refresher.progressInfo
 	}
 }

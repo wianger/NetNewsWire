@@ -7,7 +7,12 @@
 //
 
 import Foundation
+#if canImport(Security)
 import Security
+#else
+/// Status code of a failed credential store operation. On Windows, a Win32 error code.
+public typealias OSStatus = Int32
+#endif
 
 public enum CredentialsError: Error, Sendable {
 	case missingUsername
@@ -24,11 +29,11 @@ extension CredentialsError: LocalizedError {
 	public var errorDescription: String? {
 		switch self {
 		case .keychainStoreFailure(let status):
-			return "Unable to store credentials in the keychain (\(Self.keychainStatusMessage(status)))."
+			return "Unable to store credentials in \(Self.credentialStoreName) (\(Self.keychainStatusMessage(status)))."
 		case .keychainRetrieveFailure(let status):
-			return "Unable to retrieve credentials from the keychain (\(Self.keychainStatusMessage(status)))."
+			return "Unable to retrieve credentials from \(Self.credentialStoreName) (\(Self.keychainStatusMessage(status)))."
 		case .keychainRemoveFailure(let status):
-			return "Unable to remove credentials from the keychain (\(Self.keychainStatusMessage(status)))."
+			return "Unable to remove credentials from \(Self.credentialStoreName) (\(Self.keychainStatusMessage(status)))."
 		case .missingUsername:
 			return "Unable to sync account — missing username."
 		case .missingPassword:
@@ -40,12 +45,20 @@ extension CredentialsError: LocalizedError {
 		}
 	}
 
+#if canImport(Security)
 	static func keychainStatusMessage(_ status: OSStatus) -> String {
 		if let message = SecCopyErrorMessageString(status, nil) as String? {
 			return "error \(status): \(message)"
 		}
 		return "error \(status)"
 	}
+#endif
+
+#if os(Windows)
+	static let credentialStoreName = "Windows Credential Manager"
+#else
+	static let credentialStoreName = "the keychain"
+#endif
 
 	public var recoverySuggestion: String? {
 		"Try again in a few minutes. If the problem persists, please report it on the NetNewsWire Discourse forum."

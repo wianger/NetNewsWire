@@ -1,6 +1,6 @@
 //
-//  ArticleRenderer+PrimaryMedia.swift
-//  NetNewsWire
+//  ArticleHTMLRenderer+PrimaryMedia.swift
+//  ArticleRendering
 //
 //  Created by Brent Simmons on 11/8/26.
 //
@@ -10,7 +10,7 @@ import RSCore
 import Articles
 
 /// The article’s main media, for the `[[primary_media]]` substitution: a video, else audio with the article image, else the article image.
-extension ArticleRenderer {
+extension ArticleHTMLRenderer {
 
 	typealias PrimaryMedia = (html: String, attachmentURLs: Set<String>)
 
@@ -99,7 +99,7 @@ extension ArticleRenderer {
 	}
 }
 
-private extension ArticleRenderer {
+private extension ArticleHTMLRenderer {
 
 	static func primaryMediaHTML(_ html: String) -> String {
 		"<div class=\"nnw-primary-media\">\(html)</div>"

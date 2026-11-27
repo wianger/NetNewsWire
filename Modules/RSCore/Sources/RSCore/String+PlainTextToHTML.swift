@@ -7,7 +7,9 @@
 
 import Foundation
 
+#if canImport(Darwin)
 private let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+#endif
 private let linkSchemes: Set = ["http", "https", "mailto"]
 
 public extension String {
@@ -41,6 +43,7 @@ public extension String {
 
 private extension String {
 
+	#if canImport(Darwin)
 	static func linkifiedEscapedLine(_ line: String) -> String {
 		guard let linkDetector else {
 			return line.escapingSpecialXMLCharacters
@@ -61,4 +64,34 @@ private extension String {
 		html += nsLine.substring(from: location).escapingSpecialXMLCharacters
 		return html
 	}
+	#else
+	/// NSDataDetector is not available outside Apple platforms. This matches explicit
+	/// http, https and mailto URLs, which covers what feeds put in plain text.
+	static func linkifiedEscapedLine(_ line: String) -> String {
+		var html = ""
+		var remainder = line[...]
+		while let match = remainder.firstMatch(of: plainTextLinkPattern) {
+			var linkText = String(match.output)
+			// Trailing punctuation is almost always sentence punctuation, not part of the URL.
+			while let last = linkText.last, ".,;:!?)]}'\"".contains(last) {
+				linkText.removeLast()
+			}
+			let linkEnd = remainder.index(match.range.lowerBound, offsetBy: linkText.count)
+			html += remainder[..<match.range.lowerBound].description.escapingSpecialXMLCharacters
+			if let url = URL(string: linkText), let scheme = url.scheme?.lowercased(), linkSchemes.contains(scheme) {
+				let escapedLinkText = linkText.escapingSpecialXMLCharacters
+				html += "<a href=\"\(url.absoluteString.escapingSpecialXMLCharacters)\">\(escapedLinkText)</a>"
+			} else {
+				html += linkText.escapingSpecialXMLCharacters
+			}
+			remainder = remainder[linkEnd...]
+		}
+		html += String(remainder).escapingSpecialXMLCharacters
+		return html
+	}
+	#endif
 }
+
+#if !canImport(Darwin)
+nonisolated(unsafe) private let plainTextLinkPattern = /(?i)(?:https?:\/\/|mailto:)[^\s<>"]+/
+#endif

@@ -27,9 +27,9 @@ extension Notification.Name {
 	private var feedsByIconURL = [String: Set<Feed>]() // icon URL: feeds that looked it up
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDidBecomeAvailable(_:)), name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDownloadDidFail(_:)), name: .iconImageDownloadDidFail, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleFeedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared) { $0.handleIconImageDidBecomeAvailable($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDownloadDidFail, object: IconImageDownloader.shared) { $0.handleIconImageDownloadDidFail($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .feedSettingDidChange, object: nil) { $0.handleFeedSettingDidChange($1) }
 	}
 
 	/// Unavailable when the feed specifies no icon, or its icon isn’t used.
@@ -43,15 +43,15 @@ extension Notification.Name {
 
 	// MARK: - Notifications
 
-	@objc func handleIconImageDidBecomeAvailable(_ notification: Notification) {
+	func handleIconImageDidBecomeAvailable(_ notification: Notification) {
 		postFeedIconDidChange(iconURL: notification.userInfo?[IconImageDownloader.urlKey] as? String)
 	}
 
-	@objc func handleIconImageDownloadDidFail(_ notification: Notification) {
+	func handleIconImageDownloadDidFail(_ notification: Notification) {
 		postFeedIconDidChange(iconURL: notification.userInfo?[IconImageDownloader.urlKey] as? String)
 	}
 
-	@objc func handleFeedSettingDidChange(_ notification: Notification) {
+	func handleFeedSettingDidChange(_ notification: Notification) {
 		guard let feed = notification.object as? Feed, let key = notification.userInfo?[Feed.SettingUserInfoKey] as? Feed.SettingKey, key == .iconURL else {
 			return
 		}

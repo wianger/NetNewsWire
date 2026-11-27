@@ -5,6 +5,9 @@
 //  Created by Brent Simmons on 6/26/26.
 //
 
+// CGImage and ImageIO exist only on Apple platforms, as does the code under test.
+#if canImport(ImageIO)
+
 import Testing
 import CoreGraphics
 @testable import RSCore
@@ -73,3 +76,5 @@ private extension CGImageLuminanceTests {
 		return context
 	}
 }
+
+#endif

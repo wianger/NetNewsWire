@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSWeb
 import CloudKit
 import RSCore

@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 // Detect the input's encoding and transcode to UTF-8 so the rest of the
 // parser can scan a single code path.
@@ -265,20 +268,96 @@ private extension XMLEncoding {
 		return nil
 	}
 
+#if canImport(Darwin)
 	static func cf(_ encoding: CFStringEncodings) -> String.Encoding {
 		String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(encoding.rawValue)))
 	}
+#else
+	/// Foundation outside Apple platforms does not export CoreFoundation, so these are the
+	/// `kCFStringEncoding…` values from CFStringEncodingExt.h. For encodings like these,
+	/// with no NSStringEncoding constant of their own, `CFStringConvertEncodingToNSStringEncoding`
+	/// returns the CF value with the high bit set.
+	enum CFStringEncodings: UInt {
+		case isoLatinCyrillic = 0x0205
+		case isoLatin5 = 0x0209
+		case isoLatin9 = 0x020F
+		case GBK_95 = 0x0631
+		case GB_18030_2000 = 0x0632
+		case EUC_KR = 0x0940
+		case KOI8_R = 0x0A02
+		case big5 = 0x0A03
+	}
+
+	static func cf(_ encoding: CFStringEncodings) -> String.Encoding {
+		String.Encoding(rawValue: 0x8000_0000 | encoding.rawValue)
+	}
+#endif
 
 	// MARK: - Transcoding
 
 	/// Foundation-based transcode: bytes → String → UTF-8 bytes.
 	static func transcode(_ slice: ArraySlice<UInt8>, encoding: String.Encoding) -> [UInt8]? {
+#if os(Windows)
+		// Foundation on Windows ships a trimmed ICU that can't decode some of these
+		// (GBK and EUC-JP, for instance). Windows' own converters cover them all.
+		if let codePage = windowsCodePages[encoding.rawValue] {
+			return transcode(slice, codePage: codePage)
+		}
+#endif
 		let data = Data(slice)
 		guard let str = String(data: data, encoding: encoding) else {
 			return nil
 		}
 		return Array(str.utf8)
 	}
+
+#if os(Windows)
+	/// Windows code pages for the encodings in `foundationEncodings`, by `String.Encoding` raw value.
+	/// UTF-16 is left to Foundation.
+	static let windowsCodePages: [UInt: UInt32] = [
+		String.Encoding.isoLatin2.rawValue: 28592,
+		cf(.isoLatinCyrillic).rawValue: 28595,
+		cf(.isoLatin5).rawValue: 28599,
+		cf(.isoLatin9).rawValue: 28605,
+		String.Encoding.windowsCP1250.rawValue: 1250,
+		String.Encoding.windowsCP1251.rawValue: 1251,
+		String.Encoding.windowsCP1253.rawValue: 1253,
+		String.Encoding.windowsCP1254.rawValue: 1254,
+		cf(.KOI8_R).rawValue: 20866,
+		String.Encoding.shiftJIS.rawValue: 932,
+		String.Encoding.japaneseEUC.rawValue: 20932,
+		String.Encoding.iso2022JP.rawValue: 50220,
+		cf(.GBK_95).rawValue: 936,
+		cf(.GB_18030_2000).rawValue: 54936,
+		cf(.big5).rawValue: 950,
+		cf(.EUC_KR).rawValue: 949 // Unified Hangul Code, a superset of EUC-KR.
+	]
+
+	/// Decodes with `MultiByteToWideChar`. Returns nil on invalid input, as `String(data:encoding:)` does.
+	static func transcode(_ slice: ArraySlice<UInt8>, codePage: UInt32) -> [UInt8]? {
+		// ISO-2022 code pages reject MB_ERR_INVALID_CHARS.
+		let flags: UInt32 = codePage == 50220 ? 0 : UInt32(MB_ERR_INVALID_CHARS)
+		return slice.withUnsafeBufferPointer { bytes -> [UInt8]? in
+			guard let baseAddress = bytes.baseAddress, bytes.count <= Int(Int32.max) else {
+				return bytes.isEmpty ? [] : nil
+			}
+			let input = UnsafeRawPointer(baseAddress).assumingMemoryBound(to: CChar.self)
+			let count = Int32(bytes.count)
+			let length = MultiByteToWideChar(codePage, flags, input, count, nil, 0)
+			guard length > 0 else {
+				return nil
+			}
+			var wide = [WCHAR](repeating: 0, count: Int(length))
+			let written = wide.withUnsafeMutableBufferPointer { buffer in
+				MultiByteToWideChar(codePage, flags, input, count, buffer.baseAddress, length)
+			}
+			guard written == length else {
+				return nil
+			}
+			return Array(String(decoding: wide, as: UTF16.self).utf8)
+		}
+	}
+#endif
 
 	/// ISO-8859-1: byte value == codepoint. Inline to UTF-8.
 	static func transcodeLatin1(_ input: [UInt8], count: Int) -> [UInt8] {

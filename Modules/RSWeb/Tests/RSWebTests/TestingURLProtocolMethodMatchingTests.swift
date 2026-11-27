@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 import RSCore
 @testable import RSWeb
@@ -82,7 +85,7 @@ private extension TestingURLProtocolMethodMatchingTests {
 		request.httpMethod = httpMethod
 
 		let session = URLSession.makeWebserviceSession()
-		let (_, response) = try await session.data(for: request)
+		let (_, response) = try await session.data(for: session.requestWithAdditionalHeaders(request))
 		return try #require(response as? HTTPURLResponse).statusCode
 	}
 }

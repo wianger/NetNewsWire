@@ -6,7 +6,13 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(os)
 import os
+#endif
+import RSCore
 
 nonisolated public let localeForLowercasing = Locale(identifier: "en_US")
 

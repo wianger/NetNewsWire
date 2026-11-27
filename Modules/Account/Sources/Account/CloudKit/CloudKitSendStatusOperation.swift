@@ -8,7 +8,9 @@
 
 import Foundation
 import Articles
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSWeb
 import SyncDatabase

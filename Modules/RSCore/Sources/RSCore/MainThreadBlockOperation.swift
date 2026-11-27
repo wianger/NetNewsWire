@@ -18,7 +18,7 @@ import Foundation
 	}
 
 	override public func run() {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		block()
 		didComplete()
 	}

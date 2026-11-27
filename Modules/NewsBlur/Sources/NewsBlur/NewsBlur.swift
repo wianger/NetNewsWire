@@ -7,7 +7,9 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 
 public struct NewsBlur {
 	// Convention with this logger is to put "NewsBlur: " at the beginning of each message.

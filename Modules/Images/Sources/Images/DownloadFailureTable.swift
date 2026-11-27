@@ -7,7 +7,9 @@
 
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// Per-URL download-failure tracking.
 struct DownloadFailureTable {

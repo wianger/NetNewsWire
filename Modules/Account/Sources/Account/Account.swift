@@ -11,6 +11,9 @@ import UIKit
 #endif
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import RSCore
 import Articles
 import RSParser
@@ -20,7 +23,9 @@ import RSWeb
 import Secrets
 import ErrorLog
 import ActivityLog
+#if canImport(os)
 import os
+#endif
 
 // Main thread only.
 
@@ -57,7 +62,13 @@ nonisolated public enum AccountType: Int, Codable, Sendable {
 	public var displayName: String {
 		switch self {
 		case .onMyMac:
+#if canImport(Darwin)
 			return NSLocalizedString("account.name.on-my-device", tableName: "DefaultAccountNames", comment: "Device specific default account name, e.g: On My iPhone")
+#else
+			// The table above is in the Apple apps’ bundles, with per-device variations.
+			// “This PC” is what Windows calls the computer.
+			return NSLocalizedString("On This PC", comment: "Default name of the local account on Windows")
+#endif
 		// These proper names don’t have a translation.
 		case .cloudKit:
 			return "iCloud"
@@ -301,7 +312,12 @@ public enum FetchType {
 		case .onMyMac:
 			self.delegate = LocalAccountDelegate()
 		case .cloudKit:
+#if canImport(CloudKit)
 			self.delegate = CloudKitAccountDelegate(dataFolder: dataFolder)
+#else
+			// AccountManager never loads or creates an iCloud account without CloudKit.
+			preconditionFailure("iCloud accounts require CloudKit")
+#endif
 		case .feedbin:
 			self.delegate = FeedbinAccountDelegate(dataFolder: dataFolder)
 		case .feedly:
@@ -335,11 +351,11 @@ public enum FetchType {
 
 		self.settings = AccountSettings(accountID: accountID, dataFolder: dataFolder)
 
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: delegate)
-		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(batchUpdateDidPerform(_:)), name: .BatchUpdateDidPerform, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange(_:)), name: .DisplayNameDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(childrenDidChange(_:)), name: .ChildrenDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: delegate) { $0.progressInfoDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .UnreadCountDidChange) { $0.unreadCountDidChange($1) }
+        NotificationCenter.default.addMainActorObserver(self, name: .BatchUpdateDidPerform) { $0.batchUpdateDidPerform($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .DisplayNameDidChange) { $0.displayNameDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .ChildrenDidChange) { $0.childrenDidChange($1) }
 
 		delegate.accountSettings = settings
 
@@ -925,7 +941,7 @@ public enum FetchType {
 
 	@discardableResult
 	func updateAsync(feed: Feed, parsedFeed: ParsedFeed) async -> ArticleChanges {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		precondition(type == .onMyMac || type == .cloudKit)
 
 		feed.takeSettings(from: parsedFeed)
@@ -939,7 +955,7 @@ public enum FetchType {
 
 	func updateAsync(feedID: String, parsedItems: Set<ParsedItem>, deleteOlder: Bool = true) async -> ArticleChanges {
 		// Used only by an On My Mac or iCloud account.
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		precondition(type == .onMyMac || type == .cloudKit)
 
 		let articleChanges = await database.updateAsync(parsedItems: parsedItems, feedID: feedID, deleteOlder: deleteOlder)
@@ -950,7 +966,7 @@ public enum FetchType {
 	@discardableResult
 	func updateAsync(feedIDsAndItems: [String: Set<ParsedItem>], defaultRead: Bool) async -> ArticleChanges {
 		// Used only by syncing systems.
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		precondition(type != .onMyMac && type != .cloudKit)
 		guard !feedIDsAndItems.isEmpty else {
 			return ArticleChanges()
@@ -1061,7 +1077,7 @@ public enum FetchType {
 	// MARK: - Container
 
 	public func flattenedFeeds() -> Set<Feed> {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		if flattenedFeedsNeedUpdate {
 			updateFlattenedFeeds()
 		}
@@ -1133,6 +1149,7 @@ public enum FetchType {
 		await delegate.vacuumDatabases()
 	}
 
+#if canImport(CloudKit)
 	public func fetchCloudKitStats(progress: @escaping CloudKitStatsProgressHandler) async throws -> CloudKitStats {
 		guard type == .cloudKit, let cloudKitDelegate = delegate as? CloudKitAccountDelegate else {
 			throw AccountError.invalidParameter
@@ -1146,6 +1163,7 @@ public enum FetchType {
 		}
 		try await cloudKitDelegate.cleanUpCloudKit(progress: progress)
 	}
+#endif
 
 	public func debugDropConditionalGetInfo() {
 #if DEBUG
@@ -1167,23 +1185,23 @@ public enum FetchType {
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ note: Notification) {
+	func progressInfoDidChange(_ note: Notification) {
 		progressInfo = delegate.progressInfo
 	}
 
-	@objc func unreadCountDidChange(_ note: Notification) {
+	func unreadCountDidChange(_ note: Notification) {
 		if let feed = note.object as? Feed, feed.account === self {
 			updateUnreadCount()
 		}
 	}
 
-    @objc func batchUpdateDidPerform(_ note: Notification) {
+    func batchUpdateDidPerform(_ note: Notification) {
 		flattenedFeedsNeedUpdate = true
 		rebuildFeedDictionaries()
         updateUnreadCount()
     }
 
-	@objc func childrenDidChange(_ note: Notification) {
+	func childrenDidChange(_ note: Notification) {
 		guard let object = note.object else {
 			return
 		}
@@ -1196,7 +1214,7 @@ public enum FetchType {
 		}
 	}
 
-	@objc func displayNameDidChange(_ note: Notification) {
+	func displayNameDidChange(_ note: Notification) {
 		if let folder = note.object as? Folder, folder.account === self {
 			structureDidChange()
 		} else if let feed = note.object as? Feed, feed.account === self {

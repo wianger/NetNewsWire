@@ -7,6 +7,8 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 
 public let cloudKitLogger = Logger(subsystem: Logger.nnwSubsystem, category: "CloudKit")

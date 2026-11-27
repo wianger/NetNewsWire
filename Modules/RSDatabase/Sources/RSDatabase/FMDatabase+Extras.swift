@@ -6,8 +6,14 @@
 //
 
 import Foundation
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
+#if canImport(os)
 import os
+#else
+import RSCore
+#endif
 
 public extension FMDatabase {
 

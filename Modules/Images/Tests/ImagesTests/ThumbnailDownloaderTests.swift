@@ -7,9 +7,11 @@
 
 import Foundation
 import Testing
+#if canImport(ImageIO)
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+#endif
 import RSCore
 @testable import Images
 
@@ -67,6 +69,57 @@ import RSCore
 }
 
 // MARK: - Helpers
+
+#if os(Windows)
+
+/// EXIF orientation values, named as CGImagePropertyOrientation names them.
+private enum CGImagePropertyOrientation: UInt16 {
+	case up = 1, upMirrored, down, downMirrored, leftMirrored, right, rightMirrored, left
+}
+
+private func makeImage(width: Int, height: Int, topHalfRed: Bool = false) -> RSBitmap? {
+	var pixels = [UInt8]()
+	pixels.reserveCapacity(width * height * RSBitmap.bytesPerPixel)
+	for y in 0..<height {
+		// BGRA, opaque. Row 0 is the top.
+		let bgra: [UInt8]
+		if topHalfRed {
+			bgra = y < height - height / 2 ? [0, 0, 255, 255] : [255, 0, 0, 255]
+		} else {
+			bgra = [153, 102, 51, 255]
+		}
+		for _ in 0..<width {
+			pixels.append(contentsOf: bgra)
+		}
+	}
+	return RSBitmap(width: width, height: height, pixels: pixels)
+}
+
+private func pixel(_ image: RSImage, x: Int, yFromTop: Int) -> (red: UInt8, blue: UInt8)? {
+	let bitmap = image.bitmap
+	guard x >= 0, x < bitmap.width, yFromTop >= 0, yFromTop < bitmap.height else {
+		return nil
+	}
+	let offset = yFromTop * bitmap.bytesPerRow + x * RSBitmap.bytesPerPixel
+	return (red: bitmap.pixels[offset + 2], blue: bitmap.pixels[offset])
+}
+
+private func tiffData(frameSizes: [(width: Int, height: Int)]) -> Data? {
+	let frames = frameSizes.compactMap { makeImage(width: $0.width, height: $0.height) }
+	guard frames.count == frameSizes.count else {
+		return nil
+	}
+	return WICImaging.encode(frames, as: .tiff)
+}
+
+private func jpegData(width: Int, height: Int, orientation: CGImagePropertyOrientation = .up, topHalfRed: Bool = false) -> Data? {
+	guard let bitmap = makeImage(width: width, height: height, topHalfRed: topHalfRed) else {
+		return nil
+	}
+	return WICImaging.encode([bitmap], as: .jpeg, exifOrientation: orientation.rawValue)
+}
+
+#else
 
 private func makeImage(width: Int, height: Int, topHalfRed: Bool = false) -> CGImage? {
 	guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
@@ -136,3 +189,5 @@ private func jpegData(width: Int, height: Int, orientation: CGImagePropertyOrien
 	}
 	return mutableData as Data
 }
+
+#endif

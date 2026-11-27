@@ -1,6 +1,6 @@
 //
 //  ExtractBodyFragmentTests.swift
-//  NetNewsWireTests
+//  ArticleRenderingTests
 //
 //  Created by Brent Simmons on 7/30/26.
 //  Copyright © 2026 Ranchero Software, LLC. All rights reserved.
@@ -9,7 +9,7 @@
 import Foundation
 import Testing
 
-@testable import NetNewsWire
+@testable import ArticleRendering
 
 /// Tests for `ArticleRenderingSpecialCases.extractBodyFragmentIfNeeded(_:)`.
 /// <https://github.com/Ranchero-Software/NetNewsWire/issues/3008>

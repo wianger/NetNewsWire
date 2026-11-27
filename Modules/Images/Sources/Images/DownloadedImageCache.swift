@@ -6,7 +6,12 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSWeb
 import ActivityLog
@@ -93,7 +98,7 @@ extension Notification.Name {
 		let folder = AppConfig.cacheSubfolder(named: Self.folderName)
 		self.diskCache = BinaryDiskCache(folder: folder.path)
 
-		NotificationCenter.default.addObserver(self, selector: #selector(handleNetworkStatusDidChange(_:)), name: .networkStatusDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .networkStatusDidChange, object: nil) { $0.handleNetworkStatusDidChange($1) }
 
 		Task {
 			await self.removeImagesOverSizeLimit()
@@ -197,7 +202,7 @@ extension Notification.Name {
 	/// Failures while offline say nothing about the servers, so retries can start right away,
 	/// except where a server asked for a wait with Retry-After.
 	/// What wasn’t an image may have been a captive portal’s login page.
-	@objc func handleNetworkStatusDidChange(_ notification: Notification) {
+	func handleNetworkStatusDidChange(_ notification: Notification) {
 		// Only Retry-After makes a wait longer than retryWait.
 		let latestRetryDateWithoutRetryAfter = Date().addingTimeInterval(Self.retryWait)
 		retryDates = retryDates.filter { $0.value > latestRetryDateWithoutRetryAfter }

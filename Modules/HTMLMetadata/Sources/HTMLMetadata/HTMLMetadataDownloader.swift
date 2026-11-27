@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSParser
 import RSWeb
@@ -32,15 +34,15 @@ nonisolated public final class HTMLMetadataDownloader: Sendable {
 	private let urlsLookedUp = Mutex(Set<String>())
 
 	init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addObserver(self, name: .appDidGoToBackground) { $0.handleAppDidGoToBackground($1) }
+		NotificationCenter.default.addObserver(self, name: .lowMemory) { $0.handleLowMemory($1) }
 	}
 
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		emptyCache()
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		emptyCache()
 	}
 

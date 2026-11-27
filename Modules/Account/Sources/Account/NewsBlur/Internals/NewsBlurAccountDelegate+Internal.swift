@@ -16,7 +16,9 @@ import RSParser
 import RSWeb
 import NewsBlur
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 
 @MainActor extension NewsBlurAccountDelegate {
 
@@ -43,7 +45,7 @@ import os
 
 	@MainActor func syncFolders(_ account: Account, _ folders: [NewsBlurFolder]?) {
 		guard let folders else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("NewsBlur: Syncing folders with \(folders.count) folders")
 
@@ -81,7 +83,7 @@ import os
 
 	@MainActor func syncFeeds(_ account: Account, _ feeds: [NewsBlurFeed]?) {
 		guard let feeds else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("NewsBlur: Syncing feeds with \(feeds.count) feeds")
 
@@ -131,7 +133,7 @@ import os
 
 	@MainActor func syncFeedFolderRelationship(_ account: Account, _ folders: [NewsBlurFolder]?) {
 		guard let folders = folders else { return }
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("NewsBlur: Syncing folders with \(folders.count) folders")
 

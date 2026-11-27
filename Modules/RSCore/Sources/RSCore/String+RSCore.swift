@@ -7,7 +7,11 @@
 //
 
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 private let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)
 

@@ -1,6 +1,6 @@
 //
-//  ArticleRenderer+Enclosures.swift
-//  NetNewsWire
+//  ArticleHTMLRenderer+Enclosures.swift
+//  ArticleRendering
 //
 //  Created by Brent Simmons on 10/23/26.
 //
@@ -12,7 +12,7 @@ import Articles
 
 /// HTML for the `[[enclosures]]` substitution: players for audio and video, and images.
 /// Styled with classes, since inline styles get stripped.
-extension ArticleRenderer {
+extension ArticleHTMLRenderer {
 
 	private static let secondsPerMinute = 60
 	private static let secondsPerHour = 3600
@@ -103,7 +103,7 @@ extension ArticleRenderer {
 
 }
 
-private extension ArticleRenderer {
+private extension ArticleHTMLRenderer {
 
 	/// Title (or file name, linked to the audio file), duration, and size, such as “Episode 311 · 1:54:09 · 54.9 MB”.
 	static func audioCaptionHTML(_ attachment: Attachment) -> String {

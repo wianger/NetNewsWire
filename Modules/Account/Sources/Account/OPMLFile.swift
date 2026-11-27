@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSParser
 
@@ -53,7 +55,7 @@ import RSParser
 		}
 	}
 
-	@objc func saveToDiskIfNeeded() {
+	func saveToDiskIfNeeded() {
 		if isDirty {
 			isDirty = false
 			save()
@@ -64,13 +66,13 @@ import RSParser
 private extension OPMLFile {
 
 	func queueSaveToDiskIfNeeded() {
-		if Thread.isMainThread {
+		if Thread.isMainQueue {
 			MainActor.assumeIsolated {
-				saveQueue.add(self, #selector(saveToDiskIfNeeded))
+				saveQueue.add(self, id: "saveToDiskIfNeeded") { $0.saveToDiskIfNeeded() }
 			}
 		} else {
 			Task { @MainActor in
-				saveQueue.add(self, #selector(saveToDiskIfNeeded))
+				saveQueue.add(self, id: "saveToDiskIfNeeded") { $0.saveToDiskIfNeeded() }
 			}
 		}
 	}

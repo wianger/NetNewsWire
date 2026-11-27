@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// Block that executes database code.
 public typealias DatabaseBlock = @Sendable (FMDatabase) -> Void

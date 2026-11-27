@@ -8,7 +8,9 @@
 
 import Foundation
 @preconcurrency import AuthenticationServices
+#if canImport(os)
 import os
+#endif
 import Synchronization
 import ActivityLog
 import RSCore

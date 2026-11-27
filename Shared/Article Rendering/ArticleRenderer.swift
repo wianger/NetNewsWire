@@ -5,20 +5,24 @@
 //  Created by Brent Simmons on 9/8/15.
 //  Copyright © 2015 Ranchero Software, LLC. All rights reserved.
 //
+//  The app’s side of article rendering: the page files in the app bundle and the app’s
+//  settings. The rendering itself is ArticleHTMLRenderer, in the ArticleRendering module,
+//  which the Windows app shares.
+//
 
 import Foundation
 #if os(iOS)
 import UIKit
 #endif
 import RSCore
-import RSParser
 import Articles
 import Account
 import Images
+import ArticleRendering
 
 @MainActor struct ArticleRenderer {
 
-	typealias Rendering = (style: String, html: String, title: String, baseURL: String)
+	typealias Rendering = ArticleHTMLRenderer.Rendering
 
 	struct Page {
 		let url: URL
@@ -39,157 +43,40 @@ import Images
 	static var blank = Page(name: "blank")
 	static var page = Page(name: "page")
 
-	private let article: Article?
-	private let extractedArticle: ExtractedArticle?
-	private let articleTheme: ArticleTheme
-	private let title: String
-	private let body: String
-	private let baseURL: URL?
-	private let routesThumbnailImages: Bool
-
-	private static let primaryMediaKey = "primary_media"
-	private static let primaryMediaMacro = "[[primary_media]]"
-	private static let enclosuresKey = "enclosures"
-	private static let enclosuresMacro = "[[enclosures]]"
-
-	private static let longDateTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .long
-		formatter.timeStyle = .medium
-		return formatter
-	}()
-
-	private static let mediumDateTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .medium
-		formatter.timeStyle = .short
-		return formatter
-	}()
-
-	private static let shortDateTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .short
-		formatter.timeStyle = .short
-		return formatter
-	}()
-
-	private static let longDateFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .long
-		formatter.timeStyle = .none
-		return formatter
-	}()
-
-	private static let mediumDateFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .medium
-		formatter.timeStyle = .none
-		return formatter
-	}()
-
-	private static let shortDateFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .short
-		formatter.timeStyle = .none
-		return formatter
-	}()
-
-	private static let longTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .none
-		formatter.timeStyle = .long
-		return formatter
-	}()
-
-	private static let mediumTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .none
-		formatter.timeStyle = .medium
-		return formatter
-	}()
-
-	private static let shortTimeFormatter: DateFormatter = {
-		let formatter = DateFormatter()
-		formatter.dateStyle = .none
-		formatter.timeStyle = .short
-		return formatter
-	}()
-
-	private init(article: Article?, extractedArticle: ExtractedArticle?, theme: ArticleTheme, routesThumbnailImages: Bool = false) {
-		self.article = article
-		self.extractedArticle = extractedArticle
-		self.articleTheme = theme
-		self.routesThumbnailImages = routesThumbnailImages
-		self.title = ArticleStringFormatter.sanitizedTitle(article?.title, forHTML: true) ?? ""
-
-		var articleBody: String
-		var baseURL: URL?
-		if let content = extractedArticle?.content {
-			articleBody = ArticleRenderingSpecialCases.extractBodyFragmentIfNeeded(content)
-			if let extractedArticleURL = extractedArticle?.url {
-				baseURL = URL(string: extractedArticleURL)
-			}
-		} else {
-			let feedURL = article?.feed?.url
-			let homePageURL = article?.feed?.homePageURL
-
-			articleBody = ArticleRenderingSpecialCases.extractBodyFragmentIfNeeded(Self.bodyHTML(article))
-			articleBody = ArticleRenderingSpecialCases.insertParagraphTagsIfNeeded(articleBody, feedURL: feedURL, homePageURL: homePageURL)
-			articleBody = ArticleRenderingSpecialCases.removeStrayLineBreaksIfNeeded(articleBody, feedURL: feedURL, homePageURL: homePageURL)
-			articleBody = ArticleRenderingSpecialCases.enlargeFlickrImagesIfNeeded(articleBody, feedURL: feedURL, attachmentURLs: article?.attachments?.map { $0.url } ?? [])
-			if article?.account?.type == .freshRSS {
-				articleBody = ArticleRenderingSpecialCases.desanitizeFreshRSSContent(articleBody)
-			}
-
-			if let articleBaseURL = article?.baseURL {
-				baseURL = ArticleRenderingSpecialCases.baseURLForRendering(articleBaseURL)
-			}
-		}
-
-		self.body = articleBody
-		self.baseURL = baseURL
-	}
-
 	// MARK: - API
 
 	/// `routesThumbnailImages` points the thumbnail’s `<img>`s at `articleImageScheme`, which only a web view with `ArticleImageSchemeHandler` can load.
 	static func articleHTML(article: Article, extractedArticle: ExtractedArticle? = nil, theme: ArticleTheme, routesThumbnailImages: Bool = false) -> Rendering {
-		let renderer = ArticleRenderer(article: article, extractedArticle: extractedArticle, theme: theme, routesThumbnailImages: routesThumbnailImages)
-		return (renderer.articleCSS, renderer.articleHTML, renderer.title, renderer.baseURL?.absoluteString ?? "")
+		var options = options(theme: theme)
+		options.extractedArticleContent = extractedArticle?.content
+		options.extractedArticleURL = extractedArticle?.url
+		if routesThumbnailImages, let thumbnailMode = AppDefaults.timelineThumbnailsDisplay.thumbnailMode, let thumbnailURL = ArticleThumbnailFinder.shared.thumbnailURL(for: article, mode: thumbnailMode) {
+			options.thumbnailRouting = ArticleHTMLRenderer.ThumbnailRouting(thumbnailURL: thumbnailURL) { url in
+				ArticleImageSchemeHandler.routedURLString(url)
+			}
+		}
+		return ArticleHTMLRenderer.articleHTML(article: article, options: options)
 	}
 
 	static func multipleSelectionHTML(theme: ArticleTheme) -> Rendering {
-		let renderer = ArticleRenderer(article: nil, extractedArticle: nil, theme: theme)
-		return (renderer.articleCSS, renderer.multipleSelectionHTML, renderer.title, renderer.baseURL?.absoluteString ?? "")
+		ArticleHTMLRenderer.systemMessageHTML("Multiple selection", options: options(theme: theme))
 	}
 
 	static func loadingHTML(theme: ArticleTheme) -> Rendering {
-		let renderer = ArticleRenderer(article: nil, extractedArticle: nil, theme: theme)
-		return (renderer.articleCSS, renderer.loadingHTML, renderer.title, renderer.baseURL?.absoluteString ?? "")
+		ArticleHTMLRenderer.systemMessageHTML("Loading…", options: options(theme: theme))
 	}
 
 	static func noSelectionHTML(theme: ArticleTheme) -> Rendering {
-		let renderer = ArticleRenderer(article: nil, extractedArticle: nil, theme: theme)
-		return (renderer.articleCSS, renderer.noSelectionHTML, renderer.title, renderer.baseURL?.absoluteString ?? "")
+		ArticleHTMLRenderer.systemMessageHTML("No selection", options: options(theme: theme))
 	}
 
 	static func noContentHTML(theme: ArticleTheme) -> Rendering {
-		let renderer = ArticleRenderer(article: nil, extractedArticle: nil, theme: theme)
-		return (renderer.articleCSS, renderer.noContentHTML, renderer.title, renderer.baseURL?.absoluteString ?? "")
+		ArticleHTMLRenderer.systemMessageHTML("", options: options(theme: theme))
 	}
 
 	/// Full page HTML for a rendering, ready to load into a web view.
 	static func pageHTML(_ rendering: Rendering, windowScrollY: Int) -> String {
-		let substitutions = [
-			"title": rendering.title,
-			"baseURL": rendering.baseURL,
-			"style": rendering.style,
-			"body": rendering.html,
-			"windowScrollY": String(windowScrollY)
-		]
-
-		let html = try! MacroProcessor.renderedText(withTemplate: page.html, substitutions: substitutions)
-		return ArticleRenderingSpecialCases.filterHTMLIfNeeded(baseURL: rendering.baseURL, html: html)
+		ArticleHTMLRenderer.pageHTML(rendering, pageTemplate: page.html, windowScrollY: windowScrollY)
 	}
 }
 
@@ -197,228 +84,34 @@ import Images
 
 private extension ArticleRenderer {
 
-	/// The article’s body as HTML. Plain text (`contentText`, used when there’s no `contentHTML`) gets converted.
-	static func bodyHTML(_ article: Article?) -> String {
-		guard let article else {
-			return ""
-		}
-		if article.contentHTML == nil, let contentText = article.contentText {
-			return contentText.convertingPlainTextToHTML
-		}
-		return article.body ?? ""
+	static func options(theme: ArticleTheme) -> ArticleHTMLRenderer.Options {
+		ArticleHTMLRenderer.Options(
+			theme: theme,
+			textSizeClass: textSizeClass,
+			styleSubstitutions: styleSubstitutions(),
+			externalLinkLabel: NSLocalizedString("Link:", comment: "Link"),
+			imageIconScheme: imageIconScheme
+		)
 	}
 
-	private var articleHTML: String {
-		return try! MacroProcessor.renderedText(withTemplate: template(), substitutions: articleSubstitutions())
-	}
-
-	private var multipleSelectionHTML: String {
-		let body = "<h3 class='systemMessage'>Multiple selection</h3>"
-		return body
-	}
-
-	private var loadingHTML: String {
-		let body = "<h3 class='systemMessage'>Loading…</h3>"
-		return body
-	}
-
-	private var noSelectionHTML: String {
-		let body = "<h3 class='systemMessage'>No selection</h3>"
-		return body
-	}
-
-	private var noContentHTML: String {
-		return ""
-	}
-
-	private var articleCSS: String {
-		return try! MacroProcessor.renderedText(withTemplate: styleString(), substitutions: styleSubstitutions())
-	}
-
-	static var defaultStyleSheet: String = {
-		let path = Bundle.main.path(forResource: "stylesheet", ofType: "css")!
-		let s = try! String(contentsOfFile: path, encoding: .utf8)
-		return "\n\(s)\n"
-	}()
-
-	static let defaultTemplate: String = {
-		let path = Bundle.main.path(forResource: "template", ofType: "html")!
-		let s = try! String(contentsOfFile: path, encoding: .utf8)
-		return s as String
-	}()
-
-	func styleString() -> String {
-		return articleTheme.css ?? ArticleRenderer.defaultStyleSheet
-	}
-
-	func template() -> String {
-		return articleTheme.template ?? ArticleRenderer.defaultTemplate
-	}
-
-	func articleSubstitutions() -> [String: String] {
-		var d = [String: String]()
-
-		guard let article = article else {
-			assertionFailure("Article should have been set before calling this function.")
-			return d
-		}
-
-		d["title"] = title
-		d["preferred_link"] = article.preferredLink ?? ""
-
-		if let externalLink = article.externalLink, externalLink != article.preferredLink {
-			d["external_link_label"] = NSLocalizedString("Link:", comment: "Link")
-			d["external_link_stripped"] = externalLink.strippingHTTPOrHTTPSScheme
-			d["external_link"] = externalLink
-		} else {
-			d["external_link_label"] = ""
-			d["external_link_stripped"] = ""
-			d["external_link"] = ""
-		}
-
-		// Templates without [[primary_media]], and short untitled posts, get the article image in the enclosures.
-		// The thumbnail is used only for [[primary_media]].
-		let bodyImageIdentities = Self.bodyImageIdentities(body, baseURL: baseURL)
-		var attachments = article.attachments ?? []
-		var primaryMediaHTML = ""
-		var primaryMediaURLs = Set<String>()
-		let hasPrimaryMedia = template().contains(Self.primaryMediaMacro)
-		let showsPrimaryImage = hasPrimaryMedia && !Self.isShortUntitledPost(title: article.title, body: body)
-		if hasPrimaryMedia, let primaryMedia = Self.primaryMedia(imageLink: article.imageLink, thumbnailLink: article.thumbnailLink, attachments: attachments, articleTitle: article.title, body: body, bodyImageIdentities: bodyImageIdentities, includesImage: showsPrimaryImage) {
-			primaryMediaHTML = primaryMedia.html
-			primaryMediaURLs = primaryMedia.attachmentURLs
-			attachments.removeAll { primaryMediaURLs.contains($0.url) }
-		}
-		if !showsPrimaryImage, let primaryImage = Self.primaryImage(imageLink: article.imageLink, thumbnailLink: nil, attachments: attachments, body: body, bodyImageIdentities: bodyImageIdentities), !primaryMediaURLs.contains(primaryImage.url), !attachments.contains(primaryImage) {
-			attachments.insert(primaryImage, at: 0)
-		}
-
-		// Templates without [[enclosures]] get them at the end of the body.
-		var enclosures = Self.enclosuresHTML(attachments: attachments, body: body, bodyImageIdentities: bodyImageIdentities, posterURL: article.imageLink ?? article.thumbnailLink)
-		var body = body
-		if routesThumbnailImages, let thumbnailMode = AppDefaults.timelineThumbnailsDisplay.thumbnailMode, let thumbnailURL = ArticleThumbnailFinder.shared.thumbnailURL(for: article, mode: thumbnailMode) {
-			body = Self.routingThumbnailImages(body, thumbnailURL: thumbnailURL, baseURL: baseURL)
-			enclosures = Self.routingThumbnailImages(enclosures, thumbnailURL: thumbnailURL, baseURL: baseURL)
-			primaryMediaHTML = Self.routingThumbnailImages(primaryMediaHTML, thumbnailURL: thumbnailURL, baseURL: baseURL)
-		}
-		d[Self.primaryMediaKey] = primaryMediaHTML
-		if template().contains(Self.enclosuresMacro) {
-			d["body"] = body
-			d[Self.enclosuresKey] = enclosures
-		} else if enclosures.isEmpty {
-			d["body"] = body
-		} else {
-			// The wrapper div closes anything the body leaves open, such as an unclosed
-			// <audio> (Micro.blog posts have them), so the enclosures can’t end up inside it.
-			d["body"] = "<div>" + body + "</div>" + enclosures
-		}
-
+	static var textSizeClass: String? {
 		#if os(macOS)
-		d["text_size_class"] = AppDefaults.articleTextSize.cssClass
+		AppDefaults.articleTextSize.cssClass
+		#else
+		nil
 		#endif
-
-		var components = URLComponents()
-		components.scheme = Self.imageIconScheme
-		components.path = article.articleID
-		if let imageIconURLString = components.string {
-			d["avatar_src"] = imageIconURLString
-		} else {
-			d["avatar_src"] = ""
-		}
-
-		if self.title.isEmpty {
-			d["dateline_style"] = "articleDatelineTitle"
-		} else {
-			d["dateline_style"] = "articleDateline"
-		}
-
-		d["feed_link_title"] = article.feed?.nameForDisplay ?? ""
-		d["feed_link"] = article.feed?.homePageURL ?? ""
-
-		d["byline"] = byline()
-
-		let datePublished = article.logicalDatePublished
-		d["datetime_long"] = Self.longDateTimeFormatter.string(from: datePublished)
-		d["datetime_medium"] = Self.mediumDateTimeFormatter.string(from: datePublished)
-		d["datetime_short"] = Self.shortDateTimeFormatter.string(from: datePublished)
-		d["date_long"] = Self.longDateFormatter.string(from: datePublished)
-		d["date_medium"] = Self.mediumDateFormatter.string(from: datePublished)
-		d["date_short"] = Self.shortDateFormatter.string(from: datePublished)
-		d["time_long"] = Self.longTimeFormatter.string(from: datePublished)
-		d["time_medium"] = Self.mediumTimeFormatter.string(from: datePublished)
-		d["time_short"] = Self.shortTimeFormatter.string(from: datePublished)
-
-		return d
-	}
-
-	/// Points the `<img>`s that show the article’s timeline thumbnail at `articleImageScheme`,
-	/// so the article view uses the timeline’s copy instead of downloading the image again.
-	/// `data-nnw-src` keeps the original URL, which main.js falls back to when the copy can’t be loaded.
-	static func routingThumbnailImages(_ html: String, thumbnailURL: String, baseURL: URL?) -> String {
-		guard let routedURLString = ArticleImageSchemeHandler.routedURLString(thumbnailURL) else {
-			return html
-		}
-		let attributes = " src=\"\(routedURLString)\" data-nnw-src=\"\(thumbnailURL.escapingSpecialXMLCharacters)\""
-		return HTMLImageAttributeInserter.insertingAttributes(attributes, intoImagesWithSource: thumbnailURL, html: html, baseURL: baseURL)
-	}
-
-	func byline() -> String {
-		guard let authors = article?.authors ?? article?.feed?.authors, !authors.isEmpty else {
-			return ""
-		}
-
-		// If the author's name is the same as the feed, then we don't want to display it.
-		// This code assumes that multiple authors would never match the feed name so that
-		// if there feed owner has an article co-author all authors are given the byline.
-		if authors.count == 1, let author = authors.first {
-			if author.name == article?.feed?.nameForDisplay {
-				return ""
-			}
-		}
-
-		var byline = ""
-		var isFirstAuthor = true
-
-		for author in authors {
-			if !isFirstAuthor {
-				byline += ", "
-			}
-			isFirstAuthor = false
-
-			var authorEmailAddress: String?
-			if let emailAddress = author.emailAddress, !(emailAddress.contains("noreply@") || emailAddress.contains("no-reply@")) {
-				authorEmailAddress = emailAddress
-			}
-
-			if let emailAddress = authorEmailAddress, emailAddress.contains(" ") {
-				byline += emailAddress // probably name plus email address
-			} else if let name = author.name, let url = author.url {
-				byline += name.htmlByAddingLink(url)
-			} else if let name = author.name, let emailAddress = authorEmailAddress {
-				byline += "\(name) &lt;\(emailAddress)&gt;"
-			} else if let name = author.name {
-				byline += name
-			} else if let emailAddress = authorEmailAddress {
-				byline += "&lt;\(emailAddress)&gt;" // TODO: mailto link
-			} else if let url = author.url {
-				byline += String.htmlWithLink(url)
-			}
-		}
-
-		return byline
 	}
 
 	#if os(iOS)
-	func styleSubstitutions() -> [String: String] {
+	static func styleSubstitutions() -> [String: String] {
 		var d = [String: String]()
 		let bodyFont = UIFont.preferredFont(forTextStyle: .body)
 		d["font-size"] = String(describing: bodyFont.pointSize)
 		return d
 	}
 	#else
-	func styleSubstitutions() -> [String: String] {
-		return [String: String]()
+	static func styleSubstitutions() -> [String: String] {
+		[String: String]()
 	}
 	#endif
-
 }

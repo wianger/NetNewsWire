@@ -7,7 +7,12 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(os)
 import os
+#endif
 import RSCore
 
 // Create a DownloadSessionDelegate, then create a DownloadSession.
@@ -35,7 +40,7 @@ struct HTTP4xxResponse {
 	}
 }
 
-@MainActor @objc public final class DownloadSession: NSObject, ProgressInfoReporter {
+@MainActor public final class DownloadSession: NSObject, ProgressInfoReporter {
 	private var urlSession: URLSession!
 	private var tasksInProgress = Set<URLSessionTask>()
 	private var tasksPending = Set<URLSessionTask>()
@@ -44,6 +49,10 @@ struct HTTP4xxResponse {
 	private let delegate: DownloadSessionDelegate
 	private var redirectCache = [URL: URL]()
 	private var queue = [URL]()
+#if os(Windows)
+	/// On Windows, downloads go through WinHTTP (see WinHTTPClient) and are tracked here instead of as URLSessionTasks.
+	private var windowsDownloads = [ObjectIdentifier: WindowsDownload]()
+#endif
 
 	public var progressInfo = ProgressInfo() {
 		didSet {
@@ -83,7 +92,9 @@ struct HTTP4xxResponse {
 		sessionConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
 		sessionConfiguration.timeoutIntervalForRequest = 15.0
 		sessionConfiguration.timeoutIntervalForResource = 60.0
-		sessionConfiguration.waitsForConnectivity = true
+#if canImport(Darwin)
+		sessionConfiguration.waitsForConnectivity = true // Not settable in swift-corelibs-foundation.
+#endif
 		sessionConfiguration.httpShouldSetCookies = false
 		sessionConfiguration.httpCookieAcceptPolicy = .never
 		sessionConfiguration.httpMaximumConnectionsPerHost = 1
@@ -105,6 +116,12 @@ struct HTTP4xxResponse {
 
 	public func cancelAll() {
 		queue.removeAll()
+#if os(Windows)
+		// As with URLSession, each canceled download still completes, with a cancellation error.
+		for download in windowsDownloads.values {
+			download.task?.cancel()
+		}
+#endif
 		urlSession.getTasksWithCompletionHandler { dataTasks, uploadTasks, downloadTasks in
 			for task in dataTasks {
 				task.cancel()
@@ -251,7 +268,7 @@ private extension DownloadSession {
 
 	@MainActor func addDataTask(_ url: URL) {
 
-		guard tasksPending.count < 500 else {
+		guard pendingTaskCount < 500 else {
 			queue.insert(url, at: 0)
 			return
 		}
@@ -282,6 +299,9 @@ private extension DownloadSession {
 		}()
 
 		Self.logger.debug("DownloadSession: adding dataTask for \(urlToUse)")
+#if os(Windows)
+		startWindowsDownload(urlRequest, info: DownloadInfo(url))
+#else
 		let task = urlSession.dataTask(with: urlRequest)
 
 		let info = DownloadInfo(url)
@@ -289,10 +309,27 @@ private extension DownloadSession {
 
 		tasksPending.insert(task)
 		task.resume()
+#endif
+	}
+
+	var pendingTaskCount: Int {
+#if os(Windows)
+		windowsDownloads.values.count(where: { !$0.isInProgress })
+#else
+		tasksPending.count
+#endif
+	}
+
+	var inProgressTaskCount: Int {
+#if os(Windows)
+		windowsDownloads.values.count(where: { $0.isInProgress })
+#else
+		tasksInProgress.count
+#endif
 	}
 
 	@MainActor func addDataTaskFromQueueIfNecessary() {
-		guard tasksPending.count < 500, let url = queue.popLast() else { return }
+		guard pendingTaskCount < 500, let url = queue.popLast() else { return }
 		addDataTask(url)
 	}
 
@@ -373,7 +410,7 @@ private extension DownloadSession {
 			numberRemaining = 0
 			numberCompleted = 0
 		} else {
-			numberRemaining = tasksPending.count + tasksInProgress.count + queue.count
+			numberRemaining = pendingTaskCount + inProgressTaskCount + queue.count
 			numberCompleted = numberOfTasks - numberRemaining
 		}
 
@@ -394,8 +431,12 @@ private extension DownloadSession {
 extension DownloadSession {
 
 	@MainActor func handle429Response(_ dataTask: URLSessionDataTask, _ response: URLResponse) {
+		handle429Response(url: dataTask.currentRequest?.url ?? dataTask.originalRequest?.url, response: response)
+	}
 
-		guard let message = createHTTPResponse429(dataTask, response) else {
+	@MainActor func handle429Response(url: URL?, response: URLResponse) {
+
+		guard let message = createHTTPResponse429(url: url, response) else {
 			return
 		}
 
@@ -406,9 +447,9 @@ extension DownloadSession {
 	// Default for sites that don’t send a value.
 	static let defaultRetryAfter: TimeInterval = 10 * 60 // 10 minutes
 
-	func createHTTPResponse429(_ dataTask: URLSessionDataTask, _ response: URLResponse) -> HTTPResponse429? {
+	func createHTTPResponse429(url: URL?, _ response: URLResponse) -> HTTPResponse429? {
 
-		guard let url = dataTask.currentRequest?.url ?? dataTask.originalRequest?.url else {
+		guard let url else {
 			return nil
 		}
 		guard let httpResponse = response as? HTTPURLResponse else {
@@ -432,6 +473,9 @@ extension DownloadSession {
 
 		cancelAndRemoveTasksWithHost(host, in: tasksInProgress)
 		cancelAndRemoveTasksWithHost(host, in: tasksPending)
+#if os(Windows)
+		cancelAndRemoveWindowsDownloadsWithHost(host)
+#endif
 	}
 
 	@MainActor func cancelAndRemoveTasksWithHost(_ host: String, in tasks: Set<URLSessionTask>) {
@@ -514,10 +558,10 @@ private extension DownloadSession {
 	static private let lastOpenRSSOrgFeedRefreshKey = "lastOpenRSSOrgFeedRefresh"
 	static private var lastOpenRSSOrgFeedRefresh: Date {
 		get {
-			UserDefaults.standard.value(forKey: lastOpenRSSOrgFeedRefreshKey) as? Date ?? Date.distantPast
+			UserDefaults.standard.object(forKey: lastOpenRSSOrgFeedRefreshKey) as? Date ?? Date.distantPast
 		}
 		set {
-			UserDefaults.standard.setValue(newValue, forKey: lastOpenRSSOrgFeedRefreshKey)
+			UserDefaults.standard.set(newValue, forKey: lastOpenRSSOrgFeedRefreshKey)
 		}
 	}
 
@@ -569,3 +613,154 @@ private final class DownloadInfo {
 		data.append(d)
 	}
 }
+
+#if os(Windows)
+
+// MARK: - Windows
+
+/// A download in flight through WinHTTP: what a URLSessionTask and its DownloadInfo are elsewhere.
+@MainActor private final class WindowsDownload {
+	let info: DownloadInfo
+	/// The URL requested — after a cached permanent redirect, if there was one.
+	let requestURL: URL
+	/// Where redirects have led, for matching a 429's host.
+	var currentURL: URL
+	/// Has its response. Until then, pending.
+	var isInProgress = false
+	var task: Task<Void, Never>?
+
+	init(info: DownloadInfo, requestURL: URL) {
+		self.info = info
+		self.requestURL = requestURL
+		self.currentURL = requestURL
+	}
+}
+
+/// The same steps as the URLSession delegate methods above, in the same order, for WinHTTP's callbacks.
+private extension DownloadSession {
+
+	/// The user agent, as the URLSession configuration adds it.
+	static let winHTTPAdditionalHeaders: [String: String] = UserAgent.headers()?.reduce(into: [String: String]()) { headers, header in
+		if let field = header.key.base as? String {
+			headers[field] = header.value
+		}
+	} ?? [:]
+
+	func startWindowsDownload(_ request: URLRequest, info: DownloadInfo) {
+		let download = WindowsDownload(info: info, requestURL: request.url ?? info.url)
+		let key = ObjectIdentifier(download)
+		windowsDownloads[key] = download
+
+		let handlers = WinHTTPHandlers(
+			willRedirect: { [weak self] response, newRequest in
+				await self?.windowsDownload(key, willRedirect: response, newRequest: newRequest)
+			},
+			didReceiveResponse: { [weak self] response in
+				await self?.windowsDownload(key, didReceive: response) ?? false
+			},
+			didReceiveData: { [weak self] data in
+				await self?.windowsDownload(key, didReceive: data) ?? false
+			}
+		)
+		download.task = Task { [weak self] in
+			var downloadError: Error?
+			do {
+				// The timeouts of the URLSession configuration in makeURLSession.
+				_ = try await WinHTTPClient.shared.data(for: request, additionalHeaders: Self.winHTTPAdditionalHeaders, timeout: 15, resourceTimeout: 60, handlers: handlers)
+			} catch {
+				downloadError = error
+			}
+			self?.windowsDownload(key, didCompleteWithError: downloadError)
+		}
+		updateProgress()
+	}
+
+	/// As urlSession(_:task:willPerformHTTPRedirection:newRequest:completionHandler:).
+	func windowsDownload(_ key: ObjectIdentifier, willRedirect response: HTTPURLResponse, newRequest request: URLRequest) -> URLRequest? {
+		guard let download = windowsDownloads[key] else {
+			return nil
+		}
+		if Self.redirectStatusCodes.contains(response.statusCode), let newURL = request.url {
+			cacheRedirect(download.requestURL, newURL)
+		}
+		if let toURL = request.url {
+			let fromURL = response.url ?? download.info.url
+			delegate.downloadSession(self, didFollowRedirectFor: download.info.url, from: fromURL, to: toURL, statusCode: response.statusCode)
+			download.currentURL = toURL
+		}
+		var modifiedRequest = request
+		modifiedRequest.addSpecialCaseUserAgentIfNeeded()
+		return modifiedRequest
+	}
+
+	/// As urlSession(_:dataTask:didReceive:completionHandler:). False cancels the download.
+	func windowsDownload(_ key: ObjectIdentifier, didReceive response: HTTPURLResponse) -> Bool {
+		guard let download = windowsDownloads[key] else {
+			return false
+		}
+		defer {
+			updateProgress()
+		}
+
+		download.isInProgress = true
+		download.info.urlResponse = response
+		delegate.downloadSession(self, didReceiveResponse: download.info.url)
+
+		let statusCode = response.forcedStatusCode
+		if statusCode >= 400 {
+			Self.logger.debug("DownloadSession: canceling task due to >= 400 response \(response)")
+			delegate.downloadSession(self, httpError: statusCode, url: download.info.url)
+			removeWindowsDownload(key)
+
+			if statusCode == HTTPResponseCode.tooManyRequests {
+				handle429Response(url: download.currentURL, response: response)
+			} else if (400...499).contains(statusCode), let url = response.url {
+				cache4xxResponse(url: url, response: HTTP4xxResponse(statusCode))
+			}
+			return false
+		}
+
+		addDataTaskFromQueueIfNecessary()
+		return true
+	}
+
+	/// As urlSession(_:dataTask:didReceive:). False cancels the download.
+	func windowsDownload(_ key: ObjectIdentifier, didReceive data: Data) -> Bool {
+		guard let download = windowsDownloads[key] else {
+			return false
+		}
+		download.info.addData(data)
+		if !delegate.downloadSession(self, shouldContinueAfterReceivingData: download.info.data, url: download.info.url) {
+			removeWindowsDownload(key)
+			return false
+		}
+		return true
+	}
+
+	/// As urlSession(_:task:didCompleteWithError:). Downloads already removed — after a 4xx, or when
+	/// the delegate stopped them — don't complete, as their URLSession tasks find no info.
+	func windowsDownload(_ key: ObjectIdentifier, didCompleteWithError error: Error?) {
+		guard let download = windowsDownloads[key] else {
+			return
+		}
+		removeWindowsDownload(key)
+		delegate.downloadSession(self, downloadDidComplete: download.info.url, response: download.info.urlResponse, data: download.info.data, error: error as NSError?)
+	}
+
+	func removeWindowsDownload(_ key: ObjectIdentifier) {
+		windowsDownloads[key] = nil
+		addDataTaskFromQueueIfNecessary()
+		updateProgress()
+	}
+
+	func cancelAndRemoveWindowsDownloadsWithHost(_ host: String) {
+		let lowercaseHost = host.lowercased(with: localeForLowercasing)
+		let matching = windowsDownloads.filter { $0.value.currentURL.host()?.lowercased(with: localeForLowercasing) == lowercaseHost }
+		for (key, download) in matching {
+			download.task?.cancel()
+			removeWindowsDownload(key)
+		}
+	}
+}
+
+#endif

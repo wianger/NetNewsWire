@@ -7,7 +7,9 @@
 
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// `faviconURL` is `nil` when the homepage has no usable favicon.
 struct HomePageFaviconRecord: Sendable {

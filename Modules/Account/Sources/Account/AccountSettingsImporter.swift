@@ -7,7 +7,9 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 import RSWeb
 
 /// One-time import from a Settings.plist into UserDefaults.

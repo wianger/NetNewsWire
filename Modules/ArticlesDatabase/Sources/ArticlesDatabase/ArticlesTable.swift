@@ -7,10 +7,14 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import RSParser
 import Synchronization
 import Articles
@@ -44,7 +48,7 @@ final class ArticlesTable: DatabaseTable, Sendable {
 		self.searchTable = SearchTable(queue: queue)
 		self.searchTable.articlesTable = self
 
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addObserver(self, name: .lowMemory) { $0.handleLowMemory($1) }
 	}
 
 	// MARK: - Fetching Articles for Feed
@@ -563,7 +567,7 @@ final class ArticlesTable: DatabaseTable, Sendable {
 
 	// MARK: - Caches
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		emptyCaches()
 	}
 
@@ -788,10 +792,7 @@ nonisolated private extension ArticlesTable {
 
 	func sqliteSearchString(with searchString: String) -> String {
 		var s = ""
-		searchString.enumerateSubstrings(in: searchString.startIndex..<searchString.endIndex, options: .byWords) { (word, _, _, _) in
-			guard let word else {
-				return
-			}
+		for word in Self.words(in: searchString) {
 			s += word
 			if word != "AND" && word != "OR" {
 				s += "*"
@@ -800,6 +801,25 @@ nonisolated private extension ArticlesTable {
 		}
 		return s
 	}
+
+#if canImport(Darwin)
+	static func words(in string: String) -> [String] {
+		var words = [String]()
+		string.enumerateSubstrings(in: string.startIndex..<string.endIndex, options: .byWords) { word, _, _, _ in
+			if let word {
+				words.append(word)
+			}
+		}
+		return words
+	}
+#else
+	/// Foundation outside Apple platforms can't enumerate by words. A word here is a run of
+	/// letters, marks, digits and underscores, with inner apostrophes — close to the FTS4
+	/// simple tokenizer, which also keeps a run of CJK characters together as one token.
+	static func words(in string: String) -> [String] {
+		string.matches(of: /[\p{L}\p{M}\p{N}_]+(?:['’][\p{L}\p{M}\p{N}_]+)*/).map { String($0.output) }
+	}
+#endif
 
 	func articlesWithSQL(_ sql: String, _ parameters: [AnyObject], _ database: FMDatabase) -> Set<Article> {
 		let signpostState = Self.signposter.beginInterval("Fetch articles")

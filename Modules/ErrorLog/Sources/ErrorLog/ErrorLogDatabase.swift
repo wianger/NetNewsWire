@@ -8,7 +8,9 @@
 import Foundation
 import RSCore
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 public actor ErrorLogDatabase {
 
@@ -30,7 +32,7 @@ public actor ErrorLogDatabase {
 		self.database = database
 
 		if !Platform.isRunningUnitTests {
-			NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidEncounterError(_:)), name: .appDidEncounterError, object: nil)
+			NotificationCenter.default.addObserver(self, name: .appDidEncounterError) { $0.handleAppDidEncounterError($1) }
 		}
 	}
 
@@ -48,7 +50,7 @@ public actor ErrorLogDatabase {
 
 	// MARK: - Notifications
 
-	@objc nonisolated func handleAppDidEncounterError(_ notification: Notification) {
+	nonisolated func handleAppDidEncounterError(_ notification: Notification) {
 		guard let errorMessage = notification.userInfo?[ErrorLogUserInfoKey.errorMessage] as? String,
 			  let sourceName = notification.userInfo?[ErrorLogUserInfoKey.sourceName] as? String,
 			  let sourceID = notification.userInfo?[ErrorLogUserInfoKey.sourceID] as? Int else {

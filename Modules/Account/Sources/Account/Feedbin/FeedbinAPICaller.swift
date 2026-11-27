@@ -11,6 +11,9 @@
 // IP address will become unblocked and you can use the service again.
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import RSWeb
 import Secrets
 

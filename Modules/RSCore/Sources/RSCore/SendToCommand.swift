@@ -6,6 +6,8 @@
 //  Copyright © 2018 Ranchero Software. All rights reserved.
 //
 
+#if os(macOS) || os(iOS)
+
 #if os(macOS)
 import AppKit
 #endif
@@ -45,3 +47,5 @@ import UIKit
 	///   - selectedText: The currently selected text.
 	func sendObject(_ object: Any?, selectedText: String?)
 }
+
+#endif

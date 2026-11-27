@@ -5,7 +5,9 @@
 //  Created by Brent Simmons on 4/20/26.
 //
 
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 // Structured view of the data gathered from an HTML document by `HTMLMetadataParser`.
