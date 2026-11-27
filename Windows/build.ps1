@@ -52,7 +52,8 @@ finally {
 $runtimeDir = $env:Path -split ';' | Where-Object { $_ -and (Test-Path (Join-Path $_ 'swiftCore.dll')) } | Select-Object -First 1
 if (-not $runtimeDir) { throw 'The Swift runtime (swiftCore.dll) is not on PATH.' }
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-$dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+# Any host's dumpbin reads any architecture's DLLs; ARM64 machines have HostARM64 rather than Hostx64.
+$dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Host*\*\dumpbin.exe' | Select-Object -First 1
 if (-not $dumpbin) { throw 'dumpbin not found: install the Visual Studio Build Tools C++ workload.' }
 $swiftRuntimeDir = Join-Path $root "App\obj\SwiftRuntime\$Platform"
 Remove-Item -Recurse -Force $swiftRuntimeDir -ErrorAction SilentlyContinue
@@ -75,15 +76,37 @@ while ($pending.Count -gt 0) {
 }
 Write-Host "Swift runtime: $($copied.Count) DLLs from $runtimeDir"
 
-dotnet build (Join-Path $root 'App\NetNewsWire.Windows.csproj') -c $Configuration -p:Platform=$Platform "-p:NetNewsWireCoreDir=$coreDir\" "-p:SwiftRuntimeDir=$swiftRuntimeDir\"
-if ($LASTEXITCODE -ne 0) { throw "dotnet build failed ($LASTEXITCODE)" }
+$project = Join-Path $root 'App\NetNewsWire.Windows.csproj'
+$runtimeIdentifier = if ($Platform -eq 'ARM64') { 'win-arm64' } else { 'win-x64' }
+$common = @("-c", $Configuration, "-p:Platform=$Platform", "-p:NetNewsWireCoreDir=$coreDir\", "-p:SwiftRuntimeDir=$swiftRuntimeDir\")
+$packageDir = Join-Path $root 'App\AppPackages\'
+# Unsigned: sign it for distribution (signtool, winapp sign, or Azure Trusted Signing), or trust a
+# development certificate and sign it with that for testing.
+$packaging = @('-p:WindowsPackageType=MSIX', '-p:GenerateAppxPackageOnBuild=true', '-p:AppxPackageSigningEnabled=false', '-p:AppxBundle=Never', "-p:AppxPackageDir=$packageDir")
 
+if ($Configuration -eq 'Release') {
+    # Release: Native AOT. No JIT and no managed assemblies to load: about half the cold start of the
+    # JIT build, and a smaller package. The MSIX, if asked for, packages this publish.
+    $publishArgs = $common + @('-r', $runtimeIdentifier, '-p:PublishAot=true')
+    if ($Package) { $publishArgs += $packaging }
+    dotnet publish $project @publishArgs
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
+    $appPath = Get-ChildItem (Join-Path $root "App\bin\$Platform\Release") -Recurse -Filter 'NetNewsWire.exe' | Where-Object { $_.FullName -match '\\publish\\' } | Select-Object -First 1 -ExpandProperty FullName
+}
+else {
+    # Debug: a JIT build, for quick turnaround.
+    dotnet build $project @common
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed ($LASTEXITCODE)" }
+    if ($Package) {
+        dotnet build $project @common @packaging
+        if ($LASTEXITCODE -ne 0) { throw "MSIX packaging failed ($LASTEXITCODE)" }
+    }
+    $appPath = Get-ChildItem (Join-Path $root "App\bin\$Platform\Debug") -Recurse -Filter 'NetNewsWire.exe' | Where-Object { $_.FullName -notmatch '\\(publish|native|AppPackages)\\' } | Select-Object -First 1 -ExpandProperty FullName
+}
+
+# Where the app is, for selftest.ps1 and CI.
+Set-Content (Join-Path $root 'App\bin\LastBuild.txt') $appPath
+Write-Host "App: $appPath"
 if ($Package) {
-    # Unsigned: sign it for distribution (signtool, or Azure Trusted Signing), or install it on a
-    # Developer Mode machine for testing.
-    $packageDir = Join-Path $root 'App\AppPackages\'
-    dotnet build (Join-Path $root 'App\NetNewsWire.Windows.csproj') -c $Configuration -p:Platform=$Platform "-p:NetNewsWireCoreDir=$coreDir\" "-p:SwiftRuntimeDir=$swiftRuntimeDir\" `
-        -p:WindowsPackageType=MSIX -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=false -p:AppxBundle=Never "-p:AppxPackageDir=$packageDir"
-    if ($LASTEXITCODE -ne 0) { throw "MSIX packaging failed ($LASTEXITCODE)" }
     Get-ChildItem $packageDir -Recurse -Filter '*.msix' | ForEach-Object { Write-Host "Package: $($_.FullName) ($([Math]::Round($_.Length / 1MB)) MB)" }
 }

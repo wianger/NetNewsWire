@@ -321,6 +321,12 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 
 **定时刷新**：Mac 的两个计时器（`Shared/Timer`）用 Objective-C 的选择器，不能共享，于是在核心里用 Swift 并发按同样的规则重写（`CoreService+Timers.swift`）：账户按用户设置的间隔刷新（手动、30 分钟、1/2/4/8 小时，默认 2 小时，启动时先刷新一次），状态每 2 分钟同步一次，没事可做时退到 30 分钟，一有状态变更排队就回到 2 分钟。按墙上时钟判断是否到期（每分钟至少看一次），电脑睡眠错过的刷新醒来后很快补上。设置里加了“刷新订阅源”。自测运行时不在启动时刷新（自测自己刷新）。核心测试覆盖了间隔、手动、立即刷新和空闲退避。
 
+**.NET 也随应用分发（自包含）**：这轮发现应用原来是“依赖框架”的 .NET 10 应用：机器上没有 .NET 10 时只会弹出 Windows 的“安装 .NET”对话框（看起来像卡住）。MSIX 不能声明对 .NET 的依赖，所以改为自包含。验证：在 `DOTNET_ROOT` 指向 .NET 9、找不到 .NET 10 的环境里，自测通过。
+
+**Release 构建用 Native AOT**：调研结论：WinUI 3 从 Windows App SDK 1.6 起正式支持 `PublishAot`；应用本来就用编译期的 `x:Bind`、`System.Text.Json` 源生成和函数指针互操作。第一次 AOT 发布没有任何 IL 警告，但运行时在 WebView2 的 `CustomSchemeRegistrations`（`List<T>` 传给 WinRT 的 `IList`）处失败：需要 CsWinRT 在编译期生成这个泛型的 COM 包装。直接引用 `Microsoft.Windows.CsWinRT` 2.3.1 并打开 `CsWinRTAotOptimizerEnabled` 后，完整自测通过；它的分析器提示的 10 处 CsWinRT1032（集合表达式传给 `IEnumerable<T>` 参数）改成了具体的 `List<T>` 参数。实测冷启动（进程启动到主窗口出现，各 3 次）：AOT 约 210 ms，JIT（Debug）430–690 ms；MSIX 从 69 MB 降到 63 MB，包里是 10 MB 的原生 exe，没有 CoreCLR 和托管程序集。`build.ps1 -Configuration Release` 走 AOT 发布（`-Package` 时打包这个发布），Debug 仍是 JIT 构建以便快速迭代；构建把应用路径写到 `App/bin/LastBuild.txt`，`selftest.ps1` 和 CI 测的就是刚构建出来的那个 exe。
+
+**Windows CI**：`.github/workflows/windows.yml`，x64（`windows-latest`）和 ARM64（`windows-11-arm`，GitHub 为公开仓库免费提供）两个作业：安装 Swift 6.4.3（`SwiftyLab/setup-swift`，支持所有 GitHub 运行器，包括 Windows ARM64；第三方动作按提交固定）和 .NET 10，跑核心测试，Release（AOT）构建并打包 MSIX，跑端到端自测，上传自测报告和 MSIX。本机没有 ARM64 的 Swift 运行时，也没有 ARM64 机器，ARM64 由这个作业原生构建和测试。
+
 还没做：正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
 
 ## 5. 里程碑

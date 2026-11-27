@@ -3,3 +3,4 @@ App/bin/
 App/obj/
 *.user
 App/AppPackages/
+selftest-report.json

@@ -151,10 +151,10 @@ public static class SwiftCore
     public static Task<IconResult> GetArticleIconAsync(ArticleReference article) =>
         RequestAsync("icons.article", Serialize(article, CoreJsonContext.Default.ArticleReference), CoreJsonContext.Default.IconResult);
 
-    public static Task MarkArticlesAsync(IEnumerable<ArticleReference> articles, bool read) =>
+    public static Task MarkArticlesAsync(List<ArticleReference> articles, bool read) =>
         MarkAsync(articles, "read", read);
 
-    public static Task StarArticlesAsync(IEnumerable<ArticleReference> articles, bool starred) =>
+    public static Task StarArticlesAsync(List<ArticleReference> articles, bool starred) =>
         MarkAsync(articles, "starred", starred);
 
     public static Task<FeedInfo> SubscribeAsync(string url, string? name = null, string? accountID = null, int? folderID = null) =>
@@ -187,8 +187,8 @@ public static class SwiftCore
     public static Task<RefreshResult> RefreshAllAsync() =>
         RequestAsync("refresh.all", null, CoreJsonContext.Default.RefreshResult);
 
-    private static Task MarkAsync(IEnumerable<ArticleReference> articles, string key, bool flag) =>
-        RequestAsync("articles.mark", Serialize(new MarkArticlesParams(articles.ToList(), key, flag), CoreJsonContext.Default.MarkArticlesParams), CoreJsonContext.Default.EmptyResult);
+    private static Task MarkAsync(List<ArticleReference> articles, string key, bool flag) =>
+        RequestAsync("articles.mark", Serialize(new MarkArticlesParams(articles, key, flag), CoreJsonContext.Default.MarkArticlesParams), CoreJsonContext.Default.EmptyResult);
 
     /// <summary>Sends one request. Throws <see cref="CoreException"/> if the core reports an error.</summary>
     private static async Task<T> RequestAsync<T>(string method, string? paramsJson, JsonTypeInfo<T> resultType)

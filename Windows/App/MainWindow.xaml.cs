@@ -612,12 +612,12 @@ public sealed partial class MainWindow : Window
     /// <summary>Selects the article's feed in the sidebar, then the article in the timeline.</summary>
     private async Task ShowArticleAsync(string accountID, string? feedID, string articleID)
     {
-        if (Sidebar.AllNodes.FirstOrDefault(node => node.AccountID == accountID && node.Feed?.FeedID == feedID) is not { } node)
+        if (Sidebar.AllNodes.FirstOrDefault(node => node.AccountID == accountID && node.Feed?.FeedID == feedID) is not { Selection: { } selection } node)
         {
             return;
         }
         SidebarTree.SelectedItem = node;
-        await ShowSelectionAsync(node.Selection);
+        await ShowSelectionAsync(selection);
         if (Timeline.Items.FirstOrDefault(item => item.ArticleID == articleID && item.Summary.AccountID == accountID) is { } item)
         {
             TimelineList.SelectedItem = item;
@@ -1104,7 +1104,7 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            await SwiftCore.MarkArticlesAsync(unread.Select(item => item.Reference), read: true);
+            await SwiftCore.MarkArticlesAsync(unread.Select(item => item.Reference).ToList(), read: true);
         }
         catch (CoreException e)
         {
@@ -1127,7 +1127,7 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            await SwiftCore.MarkArticlesAsync(selected.Select(item => item.Reference), markRead);
+            await SwiftCore.MarkArticlesAsync(selected.Select(item => item.Reference).ToList(), markRead);
         }
         catch (CoreException e)
         {
@@ -1149,7 +1149,7 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            await SwiftCore.StarArticlesAsync(selected.Select(item => item.Reference), star);
+            await SwiftCore.StarArticlesAsync(selected.Select(item => item.Reference).ToList(), star);
         }
         catch (CoreException e)
         {

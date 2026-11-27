@@ -48,7 +48,7 @@ internal static class NotificationService
 
     public static bool IsAvailable => isRegistered && AppNotificationManager.IsSupported();
 
-    public static void Show(IEnumerable<NewArticleNotice> notices)
+    public static void Show(List<NewArticleNotice> notices)
     {
         if (!IsAvailable)
         {
