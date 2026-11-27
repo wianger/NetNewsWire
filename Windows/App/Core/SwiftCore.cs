@@ -47,6 +47,19 @@ public static class SwiftCore
 
     private static unsafe bool StartCore() => NativeMethods.nnw_core_start(0, &OnEvent);
 
+    /// <summary>Set by <see cref="Shutdown"/>: the UI thread is going away, so nothing more is sent to it.</summary>
+    private static volatile bool isShutDown;
+
+    /// <summary>Saves, and sends unsent read and starred changes. Call before <see cref="Shutdown"/>.</summary>
+    public static Task PrepareToQuitAsync() =>
+        RequestAsync("app.prepareToQuit", null, CoreJsonContext.Default.EmptyResult);
+
+    /// <summary>
+    /// Stops passing core events, responses, and main-queue work to the UI thread, which is about to be
+    /// torn down. Work still running in the core after this has nowhere to go and is dropped.
+    /// </summary>
+    public static void Shutdown() => isShutDown = true;
+
     // MARK: - Requests
 
     public static Task<CoreInfo> GetInfoAsync() =>
@@ -196,14 +209,18 @@ public static class SwiftCore
         var handle = GCHandle.FromIntPtr(context);
         var completion = (TaskCompletionSource<string>)handle.Target!;
         handle.Free();
-        completion.SetResult(NativeMethods.TakeString(json) ?? "{}");
+        var text = NativeMethods.TakeString(json) ?? "{}";
+        if (!isShutDown)
+        {
+            completion.SetResult(text);
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnEvent(nint context, nint json)
     {
         var text = NativeMethods.TakeString(json);
-        if (text is null)
+        if (text is null || isShutDown)
         {
             return;
         }
@@ -239,9 +256,16 @@ public static class SwiftCore
             while (true)
             {
                 mainQueueEvent.WaitOne();
+                if (isShutDown)
+                {
+                    return;
+                }
                 var enqueued = uiQueue.TryEnqueue(() =>
                 {
-                    NativeMethods.nnw_drain_main_queue();
+                    if (!isShutDown)
+                    {
+                        NativeMethods.nnw_drain_main_queue();
+                    }
                     drained.Set();
                 });
                 if (!enqueued)

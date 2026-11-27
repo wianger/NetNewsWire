@@ -153,8 +153,8 @@ struct FMDBCompatibilityTests {
 		#expect(database.rs_insertRow(with: ["id": 2, "name": "b"], insertType: .normal, tableName: "items"))
 		#expect(database.rs_insertRow(with: ["id": 1, "name": "ignored"], insertType: .orIgnore, tableName: "items"))
 		#expect(database.rs_insertRow(with: ["id": 2, "name": "replaced"], insertType: .orReplace, tableName: "items"))
-		#expect(database.rs_rowExistsWithValue("replaced", forKey: "name", tableName: "items"))
-		#expect(!database.rs_rowExistsWithValue("ignored", forKey: "name", tableName: "items"))
+		#expect(database.rs_rowExists(withValue: "replaced", forKey: "name", tableName: "items"))
+		#expect(!database.rs_rowExists(withValue: "ignored", forKey: "name", tableName: "items"))
 
 		#expect(database.rs_updateRows(with: ["flag": 1], whereKey: "id", inValues: [1, 2], tableName: "items"))
 		let resultSet = try #require(database.rs_selectRowsWhereKey("id", inValues: [1, 2], tableName: "items"))
@@ -166,7 +166,7 @@ struct FMDBCompatibilityTests {
 		#expect(count == 2)
 
 		#expect(database.rs_deleteRowsWhereKey("id", inValues: [1], tableName: "items"))
-		#expect(!database.rs_rowExistsWithValue(1, forKey: "id", tableName: "items"))
+		#expect(!database.rs_rowExists(withValue: 1, forKey: "id", tableName: "items"))
 		#expect(database.rs_deleteRowsWhereKey("id", inValues: [], tableName: "items"))
 		#expect(!database.rs_tableIsEmpty("items"))
 	}

@@ -30,6 +30,9 @@ import Account
 	}
 	private let eventHandler: EventHandler
 	private var pendingEvents = PendingEvents()
+
+	/// Set by `app.prepareToQuit`. No events after it: the app is tearing down its UI thread.
+	private(set) var isQuitting = false
 	private var isFlushScheduled = false
 	private var isStarted = false
 
@@ -218,6 +221,9 @@ private extension CoreService {
 
 	func flushEvents() {
 		isFlushScheduled = false
+		guard !isQuitting else {
+			return
+		}
 		let pending = pendingEvents
 		pendingEvents = PendingEvents()
 
@@ -261,4 +267,29 @@ extension CoreService {
 		}
 		enqueue(.iconsChanged)
 	}
+}
+
+extension CoreService {
+
+	/// As the Mac's applicationWillTerminate: save, then send unsent read and starred changes, waiting
+	/// up to two seconds. Events stop first, since the app is about to tear down its UI thread.
+	func prepareToQuit() async {
+		isQuitting = true
+		accountManager.saveAllIfNeeded()
+
+		let sending = StatusSendState()
+		Task { @MainActor in
+			await self.accountManager.sendArticleStatusAll()
+			sending.isDone = true
+		}
+		let deadline = Date().addingTimeInterval(2)
+		while !sending.isDone && Date() < deadline {
+			try? await Task.sleep(for: .milliseconds(50))
+		}
+		accountManager.saveAllIfNeeded()
+	}
+}
+
+@MainActor private final class StatusSendState {
+	var isDone = false
 }

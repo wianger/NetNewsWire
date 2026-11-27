@@ -53,11 +53,12 @@ public extension FMDatabase {
 		executeQuery("select * from \(tableName)")
 	}
 
-	func rs_selectColumnWithKey(_ key: String, tableName: String) -> FMResultSet? {
+	func rs_selectColumn(withKey key: String, tableName: String) -> FMResultSet? {
 		executeQuery("select \(key) from \(tableName)")
 	}
 
-	func rs_rowExistsWithValue(_ value: Any, forKey key: String, tableName: String) -> Bool {
+	/// Named as Swift imports the Objective-C `rs_rowExistsWithValue:forKey:tableName:`, which Apple platforms use.
+	func rs_rowExists(withValue value: Any, forKey key: String, tableName: String) -> Bool {
 		guard let resultSet = executeQuery("select 1 from \(tableName) where \(key) = ? limit 1;", withArgumentsIn: [value]) else {
 			return false
 		}

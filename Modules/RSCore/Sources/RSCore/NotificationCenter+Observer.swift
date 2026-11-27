@@ -32,7 +32,6 @@ public extension NotificationCenter {
 	/// posted on the main thread — as with an `@objc` method of a main actor class, which
 	/// Swift 6 checks at run time.
 	nonisolated func addMainActorObserver<Observer: AnyObject & Sendable>(_ observer: Observer, name: Notification.Name?, object: Any? = nil, using handler: @escaping @MainActor (Observer, Notification) -> Void) {
-		nonisolated(unsafe) let handler = handler
 		addObserver(observer, name: name, object: object) { observer, notification in
 			// Notification isn't Sendable, but this runs synchronously on the posting (main) thread.
 			nonisolated(unsafe) let notification = notification

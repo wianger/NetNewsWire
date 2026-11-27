@@ -26,6 +26,10 @@ extension CoreService {
 		case "articles.fetch":
 			let params = try request.decode(FetchArticlesParams.self)
 			return try Self.response(await fetchArticles(params.selection, limit: params.limit, sort: params.sortParameters, groupByFeed: params.groupByFeed ?? false, thumbnailMode: params.thumbnailMode?.thumbnailMode))
+		case "app.prepareToQuit":
+			await prepareToQuit()
+			return try Self.response(Empty())
+
 		case "accounts.types":
 			return try Self.response(accountTypes())
 		case "accounts.add":

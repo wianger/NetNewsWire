@@ -168,7 +168,7 @@ internal static class SelfTest
 
         report["events"] = events.Distinct().ToList();
         await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, SelfTestJsonContext.Default.DictionaryStringObject));
-        Application.Current.Exit();
+        await App.QuitAsync();
     }
 
     private static async Task<FeedInfo?> FindFeedAsync(string url)

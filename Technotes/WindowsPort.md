@@ -273,7 +273,24 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 - **界面**：命令栏溢出菜单里的“Accounts…”：每个账户一个复选框（停用后不显示、不刷新）、同步账户的删除（二次确认，只删本机数据）、“Add Account…”打开添加对话框（服务、按服务显示的 API URL / 用户名密码 / 令牌、注册链接）。登录失败时对话框保持打开并显示错误，和 Mac 的表单一样。
 - **测试数据隔离**：单元测试运行时，Windows 的 `CredentialsManager` 把凭据放在内存里，不写用户的 Credential Manager（和数据文件夹用临时目录同理）。已确认之前的测试没有留下任何 `NetNewsWire/` 凭据。
 - **错误信息**：swift-corelibs-foundation 的 `URLError` 没有本地化描述，界面上会显示“NSURLErrorDomain error -1004”。WinHTTP 传输层给每种错误补上 Apple Foundation 的原文措辞。
-- **验证**：核心 17 个测试（新增：服务列表不含受限服务；FreshRSS 通过 `TestingURLProtocol` 模拟登录，验证缺参数、受限服务、401、成功添加、端点和两种凭据、重复、停用、删除后凭据清除、默认账户不能删除）。应用自测：添加对话框列出 5 个服务，向不存在的服务器登录时显示错误、对话框保持打开、没有创建账户。还没有用真实的 FreshRSS / Miniflux / NewsBlur 服务器验证同步。
+- **验证**：核心 17 个测试（新增：服务列表不含受限服务；FreshRSS 通过 `TestingURLProtocol` 模拟登录，验证缺参数、受限服务、401、成功添加、端点和两种凭据、重复、停用、删除后凭据清除、默认账户不能删除）。应用自测：添加对话框列出 5 个服务，向不存在的服务器登录时显示错误、对话框保持打开、没有创建账户。
+
+**真实服务器同步验证（本机 Docker 运行的 FreshRSS）**：应用的 `--selftest-sync` 模式（服务器和凭据从环境变量传入，不出现在命令行）添加账户、等首次同步、在应用里把一篇文章标为已读并加星、再同步，然后删除账户。结果：
+- 服务器 → 应用：三个订阅源和未读数与服务器完全一致（10 / 25 / 0，其中 xkcd 是先在服务器上全部标为已读的）。
+- 应用 → 服务器：通过 Google Reader API 直接查询服务器，那篇文章已加星，NetNewsWire 的未读数同步减一；连续运行时每次都从服务器上一次的结果开始（20 → 19 → 18 → 17）。
+- 删除账户后 Credential Manager 里没有残留，真实数据文件夹不受影响。
+
+**退出时崩溃（这轮发现并修复）**：同步过程中退出，WinUI 的 `CoreMessagingXP.dll` 抛出 0xC000027B（0x800710DD：调度器已关闭后仍向它派发工作）。原因是核心还在后台工作，不断向 UI 线程投递主队列任务和事件。修复和 Mac 的 `applicationWillTerminate` 对应：新的核心方法 `app.prepareToQuit` 先停止事件、保存、把未发送的已读/星标状态发出去（最多等 2 秒），然后 C# 端 `SwiftCore.Shutdown()` 停止转发事件、响应和主队列任务，最后才退出。关闭主窗口和自测都走 `App.QuitAsync()`。修复前同一个场景间歇崩溃，修复后连续多次退出码为 0。
+
+## 4.6 没有 Mac 时的 Mac/iOS 验证
+
+仓库自带的 GitHub Actions CI（macos-26 运行器、Xcode 26.6：SwiftLint 严格模式、macOS 与 iOS 测试计划、警告即错误）在 fork（`wianger/NetNewsWire`，`windows-port` 分支，fork 内的 PR）上运行，不向上游提交任何东西。本地先用 Docker 里的 SwiftLint 0.65 按同样规则检查改动的文件。
+
+第一轮 CI 发现两个问题，都是只在 Apple 平台上才会出现的：
+- Swift 版 FMDB（Windows/Linux 用）的方法名必须与 Objective-C FMDB 在 Swift 里的导入名一致：`rs_rowExistsWithValue:forKey:tableName:` 导入为 `rs_rowExists(withValue:forKey:tableName:)`，`rs_selectColumnWithKey:tableName:` 导入为 `rs_selectColumn(withKey:tableName:)`。共享的测试按 Apple 的名字调用。
+- `addMainActorObserver` 里多余的 `nonisolated(unsafe)`（Apple 编译器警告，CI 把警告当错误）。
+
+另外，CI 用的测试计划 `NetNewsWire-CI.xctestplan` 补上了 ArticleRenderingTests。
 
 ## 5. 里程碑
 
