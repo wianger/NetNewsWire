@@ -106,3 +106,42 @@ jobs:
           name: NetNewsWire-${{ matrix.platform }}-msix
           path: Windows/App/AppPackages/**/*.msix
           retention-days: 7
+
+  # Canary: the latest Swift development snapshot (LLVM 24) on plain Visual Studio 2026, with no
+  # toolset workaround. Released Swift (6.4.3, Clang 21) can't use VS 2026's C++ library, which needs
+  # Clang 22; when this job passes, the workaround above can go once that Swift is released.
+  # It doesn't block: development snapshots break for reasons of their own.
+  windows-swift-development:
+    name: Windows x64 (Swift development snapshot, VS 2026)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        shell: pwsh
+        run: |
+          git init --quiet .
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git fetch --quiet --no-tags --depth=1 --filter=blob:none origin ${{ github.sha }}
+          git sparse-checkout set --cone Modules Windows Themes buildscripts
+          git -c core.protectNTFS=false checkout --quiet --force ${{ github.sha }}
+
+      - name: Install the Swift development snapshot
+        uses: SwiftyLab/setup-swift@d60245579ea3836a3f2fa65ebbe1e8891d577c76
+        with:
+          development: true
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        shell: pwsh
+        run: |
+          swift --version
+          ./Windows/build.ps1 -Platform x64 -Configuration Release
+
+      - name: Core tests
+        shell: pwsh
+        working-directory: Windows/Core
+        run: swift test
