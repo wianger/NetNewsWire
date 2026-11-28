@@ -7,14 +7,18 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import Articles
 import Account
 import RSCore
 import RSWeb
 import HTMLMetadata
 import ActivityLog
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 
 extension Notification.Name {
 	/// Posted when a favicon loads. userInfo key: `FaviconDownloader.feedsKey` (`Set<Feed>`, the feeds that looked it up and use it).
@@ -41,11 +45,11 @@ extension Notification.Name {
 	private var faviconURLsThatAreNotImages = Set<String>()
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDidBecomeAvailable(_:)), name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDownloadDidFail(_:)), name: .iconImageDownloadDidFail, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleHTMLMetadataAvailable(_:)), name: .htmlMetadataAvailable, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleNetworkStatusDidChange(_:)), name: .networkStatusDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleFeedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared) { $0.handleIconImageDidBecomeAvailable($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDownloadDidFail, object: IconImageDownloader.shared) { $0.handleIconImageDownloadDidFail($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .htmlMetadataAvailable, object: nil) { $0.handleHTMLMetadataAvailable($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .networkStatusDidChange, object: nil) { $0.handleNetworkStatusDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .feedSettingDidChange, object: nil) { $0.handleFeedSettingDidChange($1) }
 	}
 
 	// MARK: - API
@@ -69,7 +73,7 @@ extension Notification.Name {
 	// MARK: - Notifications
 
 	/// Every home page searching with this favicon URL saves it.
-	@objc func handleIconImageDidBecomeAvailable(_ notification: Notification) {
+	func handleIconImageDidBecomeAvailable(_ notification: Notification) {
 		guard let faviconURL = notification.userInfo?[IconImageDownloader.urlKey] as? String, faviconURLs.contains(faviconURL) else {
 			return
 		}
@@ -85,7 +89,7 @@ extension Notification.Name {
 	/// When a saved favicon URL returns something that isn’t an image, the site may have moved its favicon,
 	/// so its home pages are searched again. The saved URL stays until a search finds another one,
 	/// so a captive portal can’t clear it.
-	@objc func handleIconImageDownloadDidFail(_ notification: Notification) {
+	func handleIconImageDownloadDidFail(_ notification: Notification) {
 		guard let faviconURL = notification.userInfo?[IconImageDownloader.urlKey] as? String, faviconURLs.contains(faviconURL) else {
 			return
 		}
@@ -108,7 +112,7 @@ extension Notification.Name {
 
 	/// Waits for transient failures may have just ended, so searches that had one are tried again.
 	/// `IconImageDownloader` tries favicons that failed transiently again on this notification too.
-	@objc func handleNetworkStatusDidChange(_ notification: Notification) {
+	func handleNetworkStatusDidChange(_ notification: Notification) {
 		guard NetworkMonitor.shared.isConnected else {
 			return
 		}
@@ -122,7 +126,7 @@ extension Notification.Name {
 	}
 
 	/// A favicon already in memory posts nothing when it’s looked up again, so it’s posted here.
-	@objc func handleFeedSettingDidChange(_ notification: Notification) {
+	func handleFeedSettingDidChange(_ notification: Notification) {
 		guard let feed = notification.object as? Feed, let key = notification.userInfo?[Feed.SettingUserInfoKey] as? Feed.SettingKey else {
 			return
 		}
@@ -133,7 +137,7 @@ extension Notification.Name {
 	}
 
 	/// New metadata may name a different favicon.
-	@objc func handleHTMLMetadataAvailable(_ notification: Notification) {
+	func handleHTMLMetadataAvailable(_ notification: Notification) {
 		guard let homePageURL = notification.userInfo?[HTMLMetadataUserInfoKey.url] as? String else {
 			assertionFailure("Expected URL string in .htmlMetadataAvailable Notification userInfo.")
 			return
@@ -356,7 +360,13 @@ private extension HTMLMetadataRecord {
 		}
 	}
 
+#if canImport(UniformTypeIdentifiers)
 	static let ignoredTypes = [UTType.svg]
+#else
+	// No UTType database elsewhere: match SVG, the one ignored type, by name.
+	static let ignoredMIMETypes: Set<String> = ["image/svg+xml"]
+	static let ignoredFilenameExtensions: Set<String> = ["svg"]
+#endif
 
 	private func shouldAllowFavicon(_ favicon: HTMLMetadataRecord.Favicon) -> Bool {
 
@@ -366,6 +376,7 @@ private extension HTMLMetadataRecord {
 			return false
 		}
 
+#if canImport(UniformTypeIdentifiers)
 		// Check mime type.
 		if let mimeType = favicon.type, let utType = UTType(mimeType: mimeType) {
 			if Self.ignoredTypes.contains(utType) {
@@ -379,6 +390,14 @@ private extension HTMLMetadataRecord {
 				return false
 			}
 		}
+#else
+		if let mimeType = favicon.type?.lowercased(), Self.ignoredMIMETypes.contains(mimeType) {
+			return false
+		}
+		if let url = URL(string: urlString), Self.ignoredFilenameExtensions.contains(url.pathExtension.lowercased()) {
+			return false
+		}
+#endif
 
 		return true
 	}

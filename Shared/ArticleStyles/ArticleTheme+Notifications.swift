@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ArticleRendering
 
 extension Notification.Name {
 	static let didBeginDownloadingTheme = Notification.Name("didBeginDownloadingTheme")

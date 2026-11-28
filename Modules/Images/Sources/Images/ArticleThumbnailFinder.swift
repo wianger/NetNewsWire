@@ -56,12 +56,12 @@ extension Notification.Name {
 	init(imageDatabase: ImageDatabase) {
 		self.imageDatabase = imageDatabase
 
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .lowMemory, object: nil) { $0.handleLowMemory($1) }
 		#if os(iOS)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .appDidGoToBackground, object: nil) { $0.handleAppDidGoToBackground($1) }
 		#endif
-		NotificationCenter.default.addObserver(self, selector: #selector(handleNetworkStatusDidChange(_:)), name: .networkStatusDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleThumbnailDownloadDidFail(_:)), name: .thumbnailDownloadDidFail, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .networkStatusDidChange, object: nil) { $0.handleNetworkStatusDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .thumbnailDownloadDidFail, object: nil) { $0.handleThumbnailDownloadDidFail($1) }
 	}
 
 	/// Nil when the article has no usable image. Parses the article’s HTML when it isn’t cached.
@@ -128,23 +128,23 @@ extension Notification.Name {
 
 	// MARK: - Notifications
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		emptyHTMLThumbnailCache()
 	}
 
 	#if os(iOS)
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		emptyHTMLThumbnailCache()
 	}
 	#endif
 
 	/// What failed to decode may have been a captive portal’s login page, not the image.
-	@objc func handleNetworkStatusDidChange(_ notification: Notification) {
+	func handleNetworkStatusDidChange(_ notification: Notification) {
 		urlsThatFailedToDecode.removeAll()
 		chosenThumbnailURLs.removeAll()
 	}
 
-	@objc func handleThumbnailDownloadDidFail(_ notification: Notification) {
+	func handleThumbnailDownloadDidFail(_ notification: Notification) {
 		guard let url = notification.userInfo?[ThumbnailDownloader.urlKey] as? String, let error = notification.userInfo?[ThumbnailDownloader.errorKey] as? ImageDownloadError else {
 			return
 		}

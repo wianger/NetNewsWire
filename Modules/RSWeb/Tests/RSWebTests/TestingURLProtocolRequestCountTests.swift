@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 import RSCore
 @testable import RSWeb
@@ -94,6 +97,6 @@ private extension TestingURLProtocolRequestCountTests {
 		request.httpMethod = httpMethod
 
 		let session = URLSession.makeWebserviceSession()
-		_ = try await session.data(for: request)
+		_ = try await session.data(for: session.requestWithAdditionalHeaders(request))
 	}
 }

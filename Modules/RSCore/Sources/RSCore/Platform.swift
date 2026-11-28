@@ -7,14 +7,20 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 
 public struct Platform {
 
 	nonisolated private static let logger = Logger(subsystem: Logger.nnwSubsystem, category: "Platform")
 
 	nonisolated public static var deviceHasiCloudAccount: Bool {
+		#if canImport(Darwin)
 		FileManager.default.ubiquityIdentityToken != nil
+		#else
+		false
+		#endif
 	}
 
 	/// Returns true if the app is currently running unit tests.
@@ -44,6 +50,16 @@ public struct Platform {
 				return true
 			}
 
+#if !canImport(Darwin)
+			// SwiftPM test executables elsewhere: "<Target>-test-runner[.exe]" (Swift Build),
+			// "<Package>PackageTests.xctest" (native build system), or xctest loading a bundle.
+			let executableName = URL(fileURLWithPath: arguments.first ?? ProcessInfo.processInfo.processName).lastPathComponent.lowercased()
+			let baseName = executableName.hasSuffix(".exe") ? String(executableName.dropLast(4)) : executableName
+			if baseName.hasSuffix("-test-runner") || baseName.hasSuffix("packagetests") || baseName.hasSuffix(".xctest") || baseName == "xctest" {
+				return true
+			}
+#endif
+
 			return false
 		}
 
@@ -55,6 +71,19 @@ public struct Platform {
 		Self.logger.info("Not running unit tests")
 		return false
 	}()
+
+#if !canImport(Darwin)
+	/// While unit tests run, a fresh folder per test process, so tests never touch the user’s data.
+	/// Both data folder lookups use it: this one and `AppConfig`’s. On Apple platforms tests run
+	/// inside the app’s own sandbox container instead.
+	nonisolated static let unitTestDataFolder: URL? = {
+		guard isRunningUnitTests else {
+			return nil
+		}
+		return FileManager.default.temporaryDirectory
+			.appending(path: "NetNewsWireTests-\(ProcessInfo.processInfo.processIdentifier)-\(UUID().uuidString)", directoryHint: .isDirectory)
+	}()
+#endif
 
 	/// Get the path to a subfolder of the application's data folder (often `Application Support`).
 	/// - Parameters:
@@ -88,6 +117,15 @@ private extension Platform {
 			if let appName = appName ?? Bundle.main.infoDictionary?["CFBundleExecutable"] as? String {
 				dataFolder = dataFolder?.appendingPathComponent(appName)
 			}
+			#elseif os(Windows)
+			// %LOCALAPPDATA%, not the roaming folder: the databases are large and machine-specific.
+			guard let localAppData = ProcessInfo.processInfo.environment["LOCALAPPDATA"] else {
+				return nil
+			}
+			dataFolder = unitTestDataFolder ?? URL(filePath: localAppData, directoryHint: .isDirectory).appending(path: appName ?? "NetNewsWire", directoryHint: .isDirectory)
+			#elseif os(Linux)
+			dataFolder = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+			dataFolder = unitTestDataFolder ?? dataFolder?.appending(path: appName ?? "NetNewsWire", directoryHint: .isDirectory)
 			#else // iOS
 			dataFolder = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
 			#endif

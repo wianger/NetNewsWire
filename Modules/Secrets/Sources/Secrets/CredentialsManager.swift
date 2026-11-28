@@ -6,8 +6,12 @@
 //  Copyright © 2019 Ranchero Software. All rights reserved.
 //
 
+#if canImport(Security)
+
 import Foundation
+#if canImport(os)
 import os
+#endif
 import Security
 import RSCore
 import ErrorLog
@@ -200,3 +204,5 @@ private extension CredentialsManager {
 		NotificationCenter.default.postOnMainThread(name: .appDidEncounterError, object: self, userInfo: errorLogUserInfo)
 	}
 }
+
+#endif

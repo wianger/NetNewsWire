@@ -35,69 +35,6 @@ private func articleIDsByAccountID(_ articles: Set<Article>) -> [String: Set<Str
 	return d.mapValues { Set($0.articleIDs()) }
 }
 
-extension Article {
-	var url: URL? {
-		return URL.encodeSpacesIfNeeded(rawLink)
-	}
-
-	var externalURL: URL? {
-		return URL.encodeSpacesIfNeeded(rawExternalLink)
-	}
-
-	var preferredURL: URL? {
-		return url ?? externalURL
-	}
-
-	var imageURL: URL? {
-		return URL.encodeSpacesIfNeeded(rawImageLink)
-	}
-
-	var thumbnailURL: URL? {
-		URL.encodeSpacesIfNeeded(rawThumbnailLink)
-	}
-
-	var link: String? {
-		// Prefer link from URL, if one can be created, as these are repaired if required.
-		// Provide the raw link if URL creation fails.
-		return url?.absoluteString ?? rawLink
-	}
-
-	var externalLink: String? {
-		// Prefer link from externalURL, if one can be created, as these are repaired if required.
-		// Provide the raw link if URL creation fails.
-		return externalURL?.absoluteString ?? rawExternalLink
-	}
-
-	var imageLink: String? {
-		// Prefer link from imageURL, if one can be created, as these are repaired if required.
-		// Provide the raw link if URL creation fails.
-		return imageURL?.absoluteString ?? rawImageLink
-	}
-
-	var thumbnailLink: String? {
-		thumbnailURL?.absoluteString ?? rawThumbnailLink
-	}
-
-	var preferredLink: String? {
-		if let link = link, !link.isEmpty {
-			return link
-		}
-		if let externalLink = externalLink, !externalLink.isEmpty {
-			return externalLink
-		}
-		return nil
-	}
-
-	var body: String? {
-		return contentHTML ?? contentText ?? summary
-	}
-
-	var logicalDatePublished: Date {
-		return datePublished ?? dateModified ?? status.dateArrived
-	}
-
-}
-
 @MainActor extension Article {
 	var feed: Feed? {
 		return account?.existingFeed(withFeedID: feedID)

@@ -9,7 +9,9 @@ import Foundation
 import RSCore
 import RSWeb
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// A copy stored by `DownloadedImageCache`. `pixelSize` is nil when ImageIO can’t read the image.
 struct DownloadedImageRecord: Sendable {

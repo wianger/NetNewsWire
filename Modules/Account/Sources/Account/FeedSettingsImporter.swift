@@ -7,7 +7,9 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 import Articles
 
 /// One-time import from FeedMetadata.plist into FeedSettingsDatabase.

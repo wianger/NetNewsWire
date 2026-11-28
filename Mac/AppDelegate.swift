@@ -22,6 +22,7 @@ import CrashReporter
 import Sparkle
 import Images
 import HTMLMetadata
+import ArticleRendering
 
 let appName = "NetNewsWire"
 

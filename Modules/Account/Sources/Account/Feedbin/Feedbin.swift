@@ -7,7 +7,9 @@
 
 import Foundation
 import RSCore
+#if canImport(os)
 import os
+#endif
 
 struct Feedbin {
 	// Convention with this logger is to put "Feedbin: " at the beginning of each message.

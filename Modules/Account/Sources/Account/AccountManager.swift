@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSWeb
 import Articles
@@ -41,15 +43,17 @@ import ActivityLog
 
 	public var syncArticleContentForUnreadArticles: Bool {
 		get {
-			assert(Thread.isMainThread)
+			assert(Thread.isMainQueue)
 			return UserDefaults.standard.bool(forKey: Self.syncArticleContentForUnreadArticlesKey)
 		}
 		set {
-			assert(Thread.isMainThread)
+			assert(Thread.isMainQueue)
 			UserDefaults.standard.set(newValue, forKey: Self.syncArticleContentForUnreadArticlesKey)
+#if canImport(CloudKit)
 			if Platform.deviceHasiCloudAccount {
 				NSUbiquitousKeyValueStore.default.set(newValue, forKey: Self.syncArticleContentForUnreadArticlesKey)
 			}
+#endif
 		}
 	}
 
@@ -89,7 +93,7 @@ import ActivityLog
 	}
 
 	public var activeAccounts: [Account] {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		return Array(accountsDictionary.values.filter { $0.isActive })
 	}
 
@@ -159,13 +163,17 @@ import ActivityLog
 
 		readAccountsFromDisk()
 
+#if canImport(CloudKit)
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUbiquitousKeyValueStoreDidChangeExternally(_:)), name: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: NSUbiquitousKeyValueStore.default)
 		if Platform.deviceHasiCloudAccount {
 			NSUbiquitousKeyValueStore.default.synchronize()
 		}
+#endif
 
 		migrateSyncArticleContentForUnreadArticlesSetting(hasiCloudAccount: hasiCloudAccount)
+#if canImport(CloudKit)
 		seedSyncArticleContentForUnreadArticlesInUbiquitousKeyValueStore()
+#endif
 	}
 
 	public func start() {
@@ -175,11 +183,11 @@ import ActivityLog
 		}
 		isActive = true
 
-		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidInitialize(_:)), name: .UnreadCountDidInitialize, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(accountStateDidChange(_:)), name: .AccountStateDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .UnreadCountDidInitialize) { $0.unreadCountDidInitialize($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .UnreadCountDidChange) { $0.unreadCountDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .AccountStateDidChange) { $0.accountStateDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .appDidGoToBackground) { $0.handleAppDidGoToBackground($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .lowMemory) { $0.handleLowMemory($1) }
 		DispatchQueue.main.async {
 			self.updateUnreadCount()
 		}
@@ -446,7 +454,7 @@ import ActivityLog
 	// These fetch articles from active accounts and return a merged Set<Article>.
 
 	public func fetchArticles(_ fetchType: FetchType) -> Set<Article> {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 
 		var articles = Set<Article>()
 		for account in activeAccounts {
@@ -456,7 +464,7 @@ import ActivityLog
 	}
 
 	public func fetchArticlesAsync(_ fetchType: FetchType) async -> Set<Article> {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 
 		guard activeAccounts.count > 0 else {
 			return Set<Article>()
@@ -473,7 +481,7 @@ import ActivityLog
 
 	/// Fetch a single article (synchronously) by accountID and articleID.
 	public func fetchArticle(accountID: String, articleID: String) -> Article? {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 
 		guard let account = existingAccount(accountID: accountID) else {
 			return nil
@@ -486,7 +494,7 @@ import ActivityLog
 	// MARK: - Fetching Article Counts
 
 	public func fetchCountForStarredArticles() -> Int {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		var count = 0
 		for account in activeAccounts {
 			count += account.fetchCountForStarredArticles()
@@ -495,7 +503,7 @@ import ActivityLog
 	}
 
 	public func fetchCountForStarredArticlesAsync() async -> Int {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		var count = 0
 		for account in activeAccounts {
 			count += await account.fetchCountForStarredArticlesAsync()
@@ -504,7 +512,7 @@ import ActivityLog
 	}
 
 	public func fetchCountForTodayArticlesAsync() async -> Int {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		var count = 0
 		for account in activeAccounts {
 			count += await account.fetchCountForTodayArticlesAsync()
@@ -513,7 +521,7 @@ import ActivityLog
 	}
 
 	public func fetchUnreadCountForTodayAsync() async -> Int {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		var count = 0
 		for account in activeAccounts {
 			count += await account.fetchUnreadCountForTodayAsync()
@@ -540,7 +548,7 @@ import ActivityLog
 
 	// MARK: - Notifications
 
-	@objc func unreadCountDidInitialize(_ notification: Notification) {
+	func unreadCountDidInitialize(_ notification: Notification) {
 		guard notification.object is Account else {
 			return
 		}
@@ -549,22 +557,22 @@ import ActivityLog
 		}
 	}
 
-	@objc func unreadCountDidChange(_ notification: Notification) {
+	func unreadCountDidChange(_ notification: Notification) {
 		guard notification.object is Account else {
 			return
 		}
 		updateUnreadCount()
 	}
 
-	@objc func accountStateDidChange(_ notification: Notification) {
+	func accountStateDidChange(_ notification: Notification) {
 		updateUnreadCount()
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		emptyCaches()
 	}
 
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		emptyCaches()
 	}
 }
@@ -573,6 +581,7 @@ import ActivityLog
 
 private extension AccountManager {
 
+#if canImport(CloudKit)
 	@objc nonisolated func handleUbiquitousKeyValueStoreDidChangeExternally(_ note: Notification) {
 		guard !Platform.isRunningUnitTests else {
 			return
@@ -583,7 +592,7 @@ private extension AccountManager {
 		let changedKeys = note.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String]
 
 		Task { @MainActor in
-			assert(Thread.isMainThread)
+			assert(Thread.isMainQueue)
 			guard let changeReason, changeReason == NSUbiquitousKeyValueStoreServerChange || changeReason == NSUbiquitousKeyValueStoreInitialSyncChange else {
 				return
 			}
@@ -601,9 +610,10 @@ private extension AccountManager {
 			UserDefaults.standard.set(newValue, forKey: Self.syncArticleContentForUnreadArticlesKey)
 		}
 	}
+#endif
 
 	func migrateSyncArticleContentForUnreadArticlesSetting(hasiCloudAccount: Bool) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		// syncArticleContentForUnreadArticles should be set to false unless
 		// the user already has an iCloud account.
 		guard UserDefaults.standard.object(forKey: Self.syncArticleContentForUnreadArticlesKey) == nil else {
@@ -619,18 +629,21 @@ private extension AccountManager {
 			return
 		}
 
+#if canImport(CloudKit)
 		// Check if another device already set a value via iCloud key-value store.
 		if NSUbiquitousKeyValueStore.default.object(forKey: Self.syncArticleContentForUnreadArticlesKey) != nil {
 			let iCloudValue = NSUbiquitousKeyValueStore.default.bool(forKey: Self.syncArticleContentForUnreadArticlesKey)
 			UserDefaults.standard.set(iCloudValue, forKey: Self.syncArticleContentForUnreadArticlesKey)
 			return
 		}
+#endif
 
 		syncArticleContentForUnreadArticles = hasiCloudAccount
 	}
 
+#if canImport(CloudKit)
 	func seedSyncArticleContentForUnreadArticlesInUbiquitousKeyValueStore() {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		guard !Platform.isRunningUnitTests else {
 			return
 		}
@@ -642,13 +655,20 @@ private extension AccountManager {
 		}
 		NSUbiquitousKeyValueStore.default.set(syncArticleContentForUnreadArticles, forKey: Self.syncArticleContentForUnreadArticlesKey)
 	}
+#endif
 
 	func updateUnreadCount() {
 		unreadCount = calculateUnreadCount(activeAccounts)
 	}
 
 	func loadAccount(_ accountSpecifier: AccountSpecifier) -> Account? {
-		Account(dataFolder: accountSpecifier.folderPath, type: accountSpecifier.type, accountID: accountSpecifier.identifier)
+#if !canImport(CloudKit)
+		// An iCloud account folder copied from a Mac or iPhone can't be used here.
+		guard accountSpecifier.type != .cloudKit else {
+			return nil
+		}
+#endif
+		return Account(dataFolder: accountSpecifier.folderPath, type: accountSpecifier.type, accountID: accountSpecifier.identifier)
 	}
 
 	func loadAccount(_ filename: String) -> Account? {

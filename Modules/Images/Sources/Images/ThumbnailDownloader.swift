@@ -5,12 +5,15 @@
 //  Created by Brent Simmons on 11/3/26.
 //
 
+import Foundation
 #if os(macOS)
 import AppKit
-#else
+#elseif os(iOS)
 import UIKit
 #endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
 import RSCore
 import RSParser
 import RSWeb
@@ -47,7 +50,7 @@ public enum ThumbnailMode: String, Sendable, CaseIterable {
 	private var decodeKeysInProgress = Set<String>()
 
 	/// Decoded bitmaps: about 0.25 MB each in small mode, at most about 2.5 MB in large mode.
-	#if os(macOS)
+	#if os(macOS) || os(Windows)
 	private static let imageCacheByteLimit = 128 * 1024 * 1024
 	#else
 	private static let imageCacheByteLimit = 64 * 1024 * 1024
@@ -57,7 +60,7 @@ public enum ThumbnailMode: String, Sendable, CaseIterable {
 	/// The longest side of a wide image, which fills the timeline’s width before it reaches the height limit.
 	private static let largeThumbnailMaxPixelSize = 1200
 	/// The large thumbnail is aspect-fit into a box 180pt tall.
-	#if os(macOS)
+	#if os(macOS) || os(Windows)
 	private static let largeThumbnailMaxPixelHeight = 360
 	#else
 	private static let largeThumbnailMaxPixelHeight = 540
@@ -70,7 +73,7 @@ public enum ThumbnailMode: String, Sendable, CaseIterable {
 	private init() {
 		self.imageCache.totalCostLimit = Self.imageCacheByteLimit
 
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .lowMemory, object: nil) { $0.handleLowMemory($1) }
 	}
 
 	/// False when offline or in Low Data Mode, when thumbnails not already on disk aren’t downloaded.
@@ -100,7 +103,7 @@ public enum ThumbnailMode: String, Sendable, CaseIterable {
 	// MARK: - Notifications
 
 	/// The cache is kept when the app goes to the background, since emptying it would make thumbnails flash on resume.
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		imageCache.removeAllObjects()
 	}
 }
@@ -204,6 +207,58 @@ extension ThumbnailDownloader {
 	}
 }
 
+#if os(Windows)
+
+/// On Windows the image source is the encoded data, read by WIC, and decoded images are bitmaps.
+private extension ThumbnailDownloader {
+
+	nonisolated static func significantLargestFrame(_ data: Data) throws(ImageDownloadError) -> (imageSource: Data, largestFrame: (index: Int, width: Int, height: Int)) {
+		guard let largestFrame = WICImaging.largestFrame(data) else {
+			throw ImageDownloadError(statusCode: nil, decodingFailed: true, isTransient: false)
+		}
+		guard SignificantImageFilter.hasSignificantDimensions(width: largestFrame.width, height: largestFrame.height) else {
+			throw ImageDownloadError(statusCode: nil, decodingFailed: false, isTransient: false, rejectedPixelSize: (width: largestFrame.width, height: largestFrame.height))
+		}
+		return (imageSource: data, largestFrame: (index: largestFrame.index, width: largestFrame.width, height: largestFrame.height))
+	}
+
+	/// In EXIF orientation, with its longest side no more than `maxPixelSize`.
+	nonisolated static func thumbnail(_ imageSource: Data, frameIndex: Int, maxPixelSize: Int) throws(ImageDownloadError) -> RSBitmap {
+		guard let bitmap = WICImaging.decode(imageSource, frameIndex: frameIndex, maxPixelSize: maxPixelSize) else {
+			throw ImageDownloadError(statusCode: nil, decodingFailed: true, isTransient: false)
+		}
+		return bitmap
+	}
+
+	/// Wider images lose equal amounts from the left and right. Taller images lose only from the bottom.
+	nonisolated static func croppedToSquareFromTop(_ bitmap: RSBitmap) -> RSBitmap? {
+		guard bitmap.width != bitmap.height else {
+			return bitmap
+		}
+		let side = min(bitmap.width, bitmap.height)
+		let left = (bitmap.width - side) / 2
+		let rowByteCount = side * RSBitmap.bytesPerPixel
+		var pixels = [UInt8]()
+		pixels.reserveCapacity(rowByteCount * side)
+		for y in 0..<side {
+			let rowStart = y * bitmap.bytesPerRow + left * RSBitmap.bytesPerPixel
+			pixels.append(contentsOf: bitmap.pixels[rowStart..<(rowStart + rowByteCount)])
+		}
+		return RSBitmap(width: side, height: side, pixels: pixels)
+	}
+
+	nonisolated static func decodedResult(_ bitmap: RSBitmap) -> (image: RSImage, byteCount: Int) {
+		(image: RSImage(bitmap: bitmap), byteCount: bitmap.pixels.count)
+	}
+
+	/// True when EXIF orientation swaps the frame’s width and height.
+	nonisolated static func isRotatedQuarterTurn(_ imageSource: Data, frameIndex: Int) -> Bool {
+		WICImaging.isRotatedQuarterTurn(imageSource, frameIndex: frameIndex)
+	}
+}
+
+#else
+
 private extension ThumbnailDownloader {
 
 	nonisolated static func significantLargestFrame(_ data: Data) throws(ImageDownloadError) -> (imageSource: CGImageSource, largestFrame: (index: Int, width: Int, height: Int)) {
@@ -269,8 +324,13 @@ private extension ThumbnailDownloader {
 			return false
 		}
 	}
+}
 
-	nonisolated private static func longestSideAtHeight(_ displayedHeight: Int, width: Int, height: Int) -> Int {
+#endif
+
+private extension ThumbnailDownloader {
+
+	nonisolated static func longestSideAtHeight(_ displayedHeight: Int, width: Int, height: Int) -> Int {
 		guard width > height else {
 			return displayedHeight
 		}

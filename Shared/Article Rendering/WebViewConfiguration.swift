@@ -12,6 +12,7 @@ import os
 import WebKit
 import RSWeb
 import Articles
+import ArticleRendering
 
 @MainActor final class WebViewConfiguration {
 
@@ -151,16 +152,18 @@ private extension WebViewConfiguration {
 	}
 
 	static let articleScripts: [WKUserScript] = {
+		// main.js and newsfoot.js are shared with Windows, in the ArticleRendering module;
+		// the platform script is in the app bundle. Order matters: main, platform, newsfoot.
 #if os(iOS)
-		let filenames = ["main", "main_ios", "newsfoot"]
+		let platformScriptName = "main_ios"
 #else
-		let filenames = ["main", "main_mac", "newsfoot"]
+		let platformScriptName = "main_mac"
 #endif
+		let platformScriptURL = Bundle.main.url(forResource: platformScriptName, withExtension: ".js")!
+		let platformScript = try! String(contentsOf: platformScriptURL, encoding: .utf8)
 
-		var scripts = filenames.map { filename in
-			let scriptURL = Bundle.main.url(forResource: filename, withExtension: ".js")!
-			let scriptSource = try! String(contentsOf: scriptURL, encoding: .utf8)
-			return WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+		var scripts = [ArticleRenderingResources.mainScript, platformScript, ArticleRenderingResources.newsfootScript].map { scriptSource in
+			WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
 		}
 
 #if os(iOS)

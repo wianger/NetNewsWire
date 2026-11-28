@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 import RSCore
 @testable import RSWeb
@@ -76,7 +79,7 @@ private extension TestingURLProtocolIsolationTests {
 
 	static func statusCode(for url: URL) async throws -> Int {
 		let session = URLSession.makeWebserviceSession()
-		let (_, response) = try await session.data(from: url)
+		let (_, response) = try await session.data(for: session.requestWithAdditionalHeaders(URLRequest(url: url)))
 		return try #require(response as? HTTPURLResponse).statusCode
 	}
 }

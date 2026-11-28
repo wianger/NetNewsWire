@@ -7,7 +7,9 @@
 //
 
 import CloudKit
+#if canImport(os)
 import os
+#endif
 import RSCore
 
 // Retry on CKError.networkFailure (which is transient).

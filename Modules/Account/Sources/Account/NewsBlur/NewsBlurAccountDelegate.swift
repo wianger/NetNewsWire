@@ -15,7 +15,9 @@ import RSParser
 import RSWeb
 import NewsBlur
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 import Secrets
 
 @MainActor final class NewsBlurAccountDelegate: AccountDelegate {
@@ -50,7 +52,7 @@ import Secrets
 		caller = NewsBlurAPICaller()
 
 		syncDatabase = SyncDatabase(databasePath: dataFolder.appending("/DB.sqlite3"))
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refreshProgress)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refreshProgress) { $0.progressInfoDidChange($1) }
 	}
 
 	func receiveRemoteNotification(userInfo: [AnyHashable: Any]) async {
@@ -562,7 +564,7 @@ import Secrets
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refreshProgress.progressInfo
 	}
 }

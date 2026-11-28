@@ -7,7 +7,9 @@
 
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// `iconURL` is `nil` when the home page’s metadata specifies no icon.
 struct HomePageIconRecord: Sendable {

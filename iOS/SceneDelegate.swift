@@ -9,6 +9,7 @@
 import UIKit
 import UserNotifications
 import Account
+import ArticleRendering
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 

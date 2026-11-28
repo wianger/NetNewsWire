@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 public extension FMResultSet {
 

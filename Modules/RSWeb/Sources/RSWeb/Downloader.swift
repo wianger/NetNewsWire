@@ -7,7 +7,12 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(os)
 import os
+#endif
 import RSCore
 
 public typealias DownloadCallback = @MainActor (DownloadResponse, Error?) -> Swift.Void
@@ -60,12 +65,12 @@ public typealias DownloadCallback = @MainActor (DownloadResponse, Error?) -> Swi
 	}
 
 	public func download(_ url: URL, userAgentStyle: UserAgentStyle = .feed, _ callback: @escaping DownloadCallback) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 		download(URLRequest(url: url), userAgentStyle: userAgentStyle, callback)
 	}
 
 	public func download(_ urlRequest: URLRequest, userAgentStyle: UserAgentStyle = .feed, cachesResponse: Bool = true, _ callback: @escaping DownloadCallback) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		guard let url = urlRequest.url else {
 			Self.logger.fault("Downloader: skipping download for URLRequest without a URL")
@@ -116,6 +121,28 @@ public typealias DownloadCallback = @MainActor (DownloadResponse, Error?) -> Swi
 		}
 		urlRequestToUse.addSpecialCaseUserAgentIfNeeded() // Host requirements win over the requested style.
 
+#if os(Windows)
+		// WinHTTP, the system's HTTP stack, instead of swift-corelibs-foundation's URLSession. See WinHTTPClient.
+		let additionalHeaders = UserAgent.headers()?.reduce(into: [String: String]()) { headers, header in
+			if let field = header.key.base as? String {
+				headers[field] = header.value
+			}
+		} ?? [:]
+		let winHTTPRequest = urlRequestToUse
+		Task.detached {
+			var data: Data?
+			var response: URLResponse?
+			var error: Error?
+			do {
+				(data, response) = try await WinHTTPClient.shared.data(for: winHTTPRequest, additionalHeaders: additionalHeaders)
+			} catch let downloadError {
+				error = downloadError
+			}
+			await MainActor.run { [data, response, error] in
+				self.downloadDidComplete(url, data: data, response: response, error: error, isCacheableRequest: isCacheableRequest, cachesResponse: cachesResponse, isConditionalRequest: isConditionalRequest, callback: callback)
+			}
+		}
+#else
 		let task = urlSession.dataTask(with: urlRequestToUse) { (data, response, error) in
 
 			// Don’t cache errors — a retry should hit the network.
@@ -133,13 +160,30 @@ public typealias DownloadCallback = @MainActor (DownloadResponse, Error?) -> Swi
 			}
 		}
 		task.resume()
+#endif
 	}
 }
 
 private extension Downloader {
 
+#if os(Windows)
+	/// As the URLSession completion handler does on other platforms.
+	func downloadDidComplete(_ url: URL, data: Data?, response: URLResponse?, error: Error?, isCacheableRequest: Bool, cachesResponse: Bool, isConditionalRequest: Bool, callback: @escaping DownloadCallback) {
+		// Don’t cache errors — a retry should hit the network.
+		if isCacheableRequest && cachesResponse && error == nil {
+			Self.logger.debug("Downloader: caching response for \(url)")
+			cache.add(url.absoluteString, data: data, response: response)
+		}
+		if isConditionalRequest {
+			callback(DownloadResponse(data: data, response: response, returnedFromCache: false), error)
+		} else {
+			callAndReleaseCallbacks(url, data, response, error)
+		}
+	}
+#endif
+
 	func callAndReleaseCallbacks(_ url: URL, _ data: Data? = nil, _ response: URLResponse? = nil, _ error: Error? = nil) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		guard let callbacksForURL = callbacks[url] else {
 			assertionFailure("Downloader: downloaded URL \(url) but no callbacks found")

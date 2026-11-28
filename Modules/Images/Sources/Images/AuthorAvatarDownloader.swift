@@ -23,7 +23,7 @@ extension Notification.Name {
 	private var avatarURLs = Set<String>() // Every avatar URL looked up, so a changed image is posted too
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDidBecomeAvailable(_:)), name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared)
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared) { $0.handleIconImageDidBecomeAvailable($1) }
 	}
 
 	public func avatar(for author: Author) -> IconLookup {
@@ -34,7 +34,7 @@ extension Notification.Name {
 		return IconImageDownloader.shared.iconImage(for: avatarURL, activityOwner: .avatarDownloader, activityKind: .downloadAvatar(avatarURL: avatarURL), activityDetail: author.name)
 	}
 
-	@objc func handleIconImageDidBecomeAvailable(_ notification: Notification) {
+	func handleIconImageDidBecomeAvailable(_ notification: Notification) {
 		guard let avatarURL = notification.userInfo?[IconImageDownloader.urlKey] as? String, avatarURLs.contains(avatarURL) else {
 			return
 		}

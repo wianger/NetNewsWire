@@ -9,6 +9,7 @@
 import Foundation
 import Synchronization
 import RSCore
+import ArticleRendering
 
 public extension Notification.Name {
 	static let ArticleThemeNamesDidChangeNotification = Notification.Name("ArticleThemeNamesDidChangeNotification")

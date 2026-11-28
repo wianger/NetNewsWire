@@ -34,10 +34,10 @@ extension Notification.Name {
 	private var iconURLs = Set<String>() // Every icon URL looked up, so other kinds of icons are ignored when they arrive
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDidBecomeAvailable(_:)), name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleIconImageDownloadDidFail(_:)), name: .iconImageDownloadDidFail, object: IconImageDownloader.shared)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleHTMLMetadataAvailable(_:)), name: .htmlMetadataAvailable, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleFeedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDidBecomeAvailable, object: IconImageDownloader.shared) { $0.handleIconImageDidBecomeAvailable($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .iconImageDownloadDidFail, object: IconImageDownloader.shared) { $0.handleIconImageDownloadDidFail($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .htmlMetadataAvailable, object: nil) { $0.handleHTMLMetadataAvailable($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .feedSettingDidChange, object: nil) { $0.handleFeedSettingDidChange($1) }
 	}
 
 	/// Unavailable while the home page’s metadata isn’t in memory. `.homePageIconDidChange` follows when it arrives.
@@ -65,7 +65,7 @@ extension Notification.Name {
 
 	// MARK: - Notifications
 
-	@objc func handleIconImageDidBecomeAvailable(_ notification: Notification) {
+	func handleIconImageDidBecomeAvailable(_ notification: Notification) {
 		guard let iconURL = notification.userInfo?[IconImageDownloader.urlKey] as? String, iconURLs.contains(iconURL) else {
 			return
 		}
@@ -77,7 +77,7 @@ extension Notification.Name {
 	}
 
 	/// Feeds showing this icon look again, which falls back to the next source.
-	@objc func handleIconImageDownloadDidFail(_ notification: Notification) {
+	func handleIconImageDownloadDidFail(_ notification: Notification) {
 		guard let iconURL = notification.userInfo?[IconImageDownloader.urlKey] as? String, iconURLs.contains(iconURL) else {
 			return
 		}
@@ -85,7 +85,7 @@ extension Notification.Name {
 		postHomePageIconDidChange(iconURL: iconURL)
 	}
 
-	@objc func handleHTMLMetadataAvailable(_ notification: Notification) {
+	func handleHTMLMetadataAvailable(_ notification: Notification) {
 		guard let homePageURL = notification.userInfo?[HTMLMetadataUserInfoKey.url] as? String, feedsByHomePageURL[homePageURL] != nil else {
 			return
 		}
@@ -97,7 +97,7 @@ extension Notification.Name {
 		}
 	}
 
-	@objc func handleFeedSettingDidChange(_ notification: Notification) {
+	func handleFeedSettingDidChange(_ notification: Notification) {
 		guard let feed = notification.object as? Feed, let key = notification.userInfo?[Feed.SettingUserInfoKey] as? Feed.SettingKey, key == .homePageURL else {
 			return
 		}

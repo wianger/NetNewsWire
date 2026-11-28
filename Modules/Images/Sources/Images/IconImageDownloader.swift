@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSWeb
 import ActivityLog
@@ -50,10 +52,10 @@ public enum IconLookup {
 	private var requestsToRetry = [String: Request]() // url: request that failed transiently
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleDownloadedImageDidChange(_:)), name: .downloadedImageDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleNetworkStatusDidChange(_:)), name: .networkStatusDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .appDidGoToBackground, object: nil) { $0.handleAppDidGoToBackground($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .lowMemory, object: nil) { $0.handleLowMemory($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .downloadedImageDidChange, object: nil) { $0.handleDownloadedImageDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .networkStatusDidChange, object: nil) { $0.handleNetworkStatusDidChange($1) }
 	}
 
 	/// Starts loading when the icon isn’t in memory. Posts `.iconImageDidBecomeAvailable` or `.iconImageDownloadDidFail` when done.
@@ -86,17 +88,17 @@ public enum IconLookup {
 
 	// MARK: - Notifications
 
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		iconImages.removeAll()
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		iconImages.removeAll()
 	}
 
 	/// Made again even when not in memory, since icons made from the old copy may be cached elsewhere.
 	/// The old icon stays in memory until the new one replaces it.
-	@objc func handleDownloadedImageDidChange(_ notification: Notification) {
+	func handleDownloadedImageDidChange(_ notification: Notification) {
 		guard let url = notification.userInfo?[DownloadedImageCache.urlKey] as? String else {
 			return
 		}
@@ -105,7 +107,7 @@ public enum IconLookup {
 
 	/// Waits for transient failures may have just ended, so those icons are requested again.
 	/// Runs after `DownloadedImageCache` ends those waits, which it does on this notification too.
-	@objc func handleNetworkStatusDidChange(_ notification: Notification) {
+	func handleNetworkStatusDidChange(_ notification: Notification) {
 		guard NetworkMonitor.shared.isConnected else {
 			return
 		}

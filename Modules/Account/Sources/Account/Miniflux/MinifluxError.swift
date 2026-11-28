@@ -30,10 +30,10 @@ enum MinifluxError: LocalizedError {
 				return NSLocalizedString("NetNewsWire requires Miniflux 2.0.49 or later.", comment: "Server version too old")
 			}
 			let localizedText = NSLocalizedString("This Miniflux server is version %@, but NetNewsWire requires Miniflux 2.0.49 or later.", comment: "Server version too old")
-			return NSString.localizedStringWithFormat(localizedText as NSString, foundVersion) as String
+			return String.localizedStringWithFormat(localizedText, foundVersion as NSString)
 		case .serverError(let message):
 			let localizedText = NSLocalizedString("The Miniflux server reported an error: %@", comment: "Server error")
-			return NSString.localizedStringWithFormat(localizedText as NSString, message) as String
+			return String.localizedStringWithFormat(localizedText, message as NSString)
 		case .entriesChangedDuringSync:
 			return NSLocalizedString("Articles on the Miniflux server kept changing during sync. NetNewsWire will try again on the next refresh.", comment: "Entries changed during sync")
 		}

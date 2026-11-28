@@ -8,6 +8,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import RSCore
+import ArticleRendering
 
 /// Lists the article themes: tap to choose one, swipe to delete one the user installed, and + to import one.
 struct ArticleThemesView: View {

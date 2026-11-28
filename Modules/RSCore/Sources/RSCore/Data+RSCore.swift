@@ -7,7 +7,11 @@
 //
 
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 public extension Data {
 	/// The MD5 hash of the data.

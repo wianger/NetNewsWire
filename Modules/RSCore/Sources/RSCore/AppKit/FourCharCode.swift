@@ -6,6 +6,8 @@
 //  Copyright © 2018 Olof Hellman. All rights reserved.
 //
 
+#if os(macOS)
+
 import Foundation
 
 public extension String {
@@ -33,3 +35,5 @@ public extension Int {
 		return UInt32(self)
 	}
 }
+
+#endif

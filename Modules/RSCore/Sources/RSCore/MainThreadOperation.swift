@@ -107,7 +107,7 @@ import Synchronization
 
 	/// Call when completed. This will trigger calling completionBlock.
 	nonisolated public func didComplete() {
-		if Thread.isMainThread {
+		if Thread.isMainQueue {
 			MainActor.assumeIsolated {
 				operationQueue?.operationDidComplete(self)
 			}

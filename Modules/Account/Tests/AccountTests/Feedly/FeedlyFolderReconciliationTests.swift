@@ -13,8 +13,9 @@ import XCTest
 	private var account: Account!
 	private let accountManager = TestAccountManager()
 
+	// No super calls: XCTestCase's async setUp and tearDown do nothing, and on platforms where
+	// XCTestCase isn't Sendable, calling them from this main actor class doesn't compile.
 	override func setUp() async throws {
-		try await super.setUp()
 		account = accountManager.createAccount(type: .feedly)
 	}
 
@@ -22,7 +23,6 @@ import XCTest
 		if let account {
 			accountManager.deleteAccount(account)
 		}
-		try await super.tearDown()
 	}
 
 	// MARK: - mirrorCollectionsAsFolders

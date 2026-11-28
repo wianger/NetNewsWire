@@ -27,13 +27,13 @@ public extension Notification.Name {
 
 	/// Is updating in progress?
 	public var isPerforming: Bool {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		return count > 0
 	}
 
 	/// Perform a batch update.
 	public func perform(_ batchUpdateBlock: BatchUpdateBlock) {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		incrementCount()
 		batchUpdateBlock()
 		decrementCount()
@@ -41,13 +41,13 @@ public extension Notification.Name {
 
 	/// Start batch updates.
 	public func start() {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		incrementCount()
 	}
 
 	/// End batch updates.
 	public func end() {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		decrementCount()
 	}
 }
@@ -68,7 +68,7 @@ private extension BatchUpdate {
 	}
 
 	func postBatchUpdateDidPerform() {
-		if !Thread.isMainThread {
+		if !Thread.isMainQueue {
 			DispatchQueue.main.sync {
 				NotificationCenter.default.post(name: .BatchUpdateDidPerform, object: nil, userInfo: nil)
 			}

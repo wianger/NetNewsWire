@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 public protocol DatabaseTable {
 

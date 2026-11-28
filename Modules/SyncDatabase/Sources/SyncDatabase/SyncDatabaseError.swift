@@ -6,7 +6,10 @@
 //
 
 import Foundation
+import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// Sync database failure.
 ///

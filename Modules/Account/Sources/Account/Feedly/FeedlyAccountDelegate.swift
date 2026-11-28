@@ -15,7 +15,9 @@ import RSCore
 import RSParser
 import RSWeb
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 import Secrets
 
 @MainActor final class FeedlyAccountDelegate: AccountDelegate {
@@ -129,7 +131,7 @@ import Secrets
 
 		self.caller.delegate = self
 
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refreshProgress)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refreshProgress) { $0.progressInfoDidChange($1) }
 	}
 
 	// MARK: - Account API
@@ -891,7 +893,7 @@ import Secrets
 
 	// MARK: - Notifications
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refreshProgress.progressInfo
 	}
 }

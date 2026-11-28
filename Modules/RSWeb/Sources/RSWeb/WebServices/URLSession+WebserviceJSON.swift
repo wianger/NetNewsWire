@@ -7,6 +7,10 @@
 //
 
 import Foundation
+import RSCore
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 nonisolated extension URLSession {
 
@@ -44,13 +48,13 @@ nonisolated extension URLSession {
 
 	@concurrent
 	private static func encode<P: Encodable & Sendable>(_ payload: P) async throws -> Data {
-		assert(!Thread.isMainThread, "JSON encoding should not happen on the main thread.")
+		assert(!Thread.isMainQueue, "JSON encoding should not happen on the main thread.")
 		return try JSONEncoder().encode(payload)
 	}
 
 	@concurrent
 	private static func decode<R: Decodable & Sendable>(_ type: R.Type, from data: Data, dateDecoding: JSONDecoder.DateDecodingStrategy, keyDecoding: JSONDecoder.KeyDecodingStrategy) async throws -> R {
-		assert(!Thread.isMainThread, "JSON decoding should not happen on the main thread.")
+		assert(!Thread.isMainQueue, "JSON decoding should not happen on the main thread.")
 		let decoder = JSONDecoder()
 		decoder.dateDecodingStrategy = dateDecoding
 		decoder.keyDecodingStrategy = keyDecoding

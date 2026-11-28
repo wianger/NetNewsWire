@@ -15,6 +15,8 @@ import UIKit
 import WatchKit
 #elseif os(OSX)
 import AppKit
+#else
+import RSCore
 #endif
 
 public class ColorHash {
@@ -69,6 +71,11 @@ public class ColorHash {
 	public var color: NSColor {
 		let (h, s, b) = HSB
 		return NSColor(hue: h, saturation: s, brightness: b, alpha: 1.0)
+	}
+	#else
+	public var color: RSColor {
+		let (h, s, b) = HSB
+		return RSColor(hue: h, saturation: s, brightness: b, alpha: 1.0)
 	}
 	#endif
 

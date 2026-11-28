@@ -1,0 +1,147 @@
+name: Windows
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            runner: windows-latest
+          - platform: ARM64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      # Only what the Windows build uses. Some App Store screenshot paths contain '"', which Windows
+      # can't represent; sparse checkout never writes them, but git still checks every path in the
+      # commit on Windows (core.protectNTFS), so that check is relaxed for this checkout only.
+      - name: Checkout
+        shell: pwsh
+        run: |
+          git init --quiet .
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git fetch --quiet --no-tags --depth=1 --filter=blob:none origin ${{ github.sha }}
+          git sparse-checkout set --cone Modules Windows Themes buildscripts
+          git -c core.protectNTFS=false checkout --quiet --force ${{ github.sha }}
+          git log --oneline -1
+
+      # Pinned to the v1.14.2 commit: a third-party action.
+      - name: Install Swift
+        uses: SwiftyLab/setup-swift@d60245579ea3836a3f2fa65ebbe1e8891d577c76
+        with:
+          swift-version: '6.4.3'
+
+      # Swift 6.4's Clang predates Visual Studio 2026's C++ library (MSVC 14.5x requires Clang 22). The
+      # images also install the VS 2022 toolset, 14.44, but Swift Build always takes the newest toolset
+      # in the newest Visual Studio (SWBWindowsPlugin.cachedLatestVSInstallDirectory) and has no
+      # override, so on this throwaway runner the newer toolsets are moved out of its way.
+      - name: Use the MSVC 14.44 toolset
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $msvc = Join-Path $vs 'VC\Tools\MSVC'
+          if (-not (Test-Path (Join-Path $msvc '14.44.*'))) { throw "MSVC 14.44 isn't installed in $vs" }
+          $aside = Join-Path $vs 'VC\Tools\MSVC-newer'
+          New-Item -ItemType Directory -Force $aside | Out-Null
+          Get-ChildItem $msvc -Directory | Where-Object { [version]$_.Name -gt [version]'14.44.99999' } | ForEach-Object {
+            Write-Host "Moving aside MSVC $($_.Name)"
+            Move-Item $_.FullName $aside
+          }
+          Get-ChildItem $msvc -Directory | ForEach-Object { "MSVC toolsets in use: $($_.Name)" }
+          # The environment Swift was set up with pointed into the moved toolset: set it again for 14.44.
+          $arch = if ('${{ matrix.platform }}' -eq 'ARM64') { 'arm64' } else { 'x64' }
+          $environment = cmd /c "`"$vs\VC\Auxiliary\Build\vcvarsall.bat`" $arch -vcvars_ver=14.44 >nul && set"
+          if ($LASTEXITCODE -ne 0) { throw "vcvarsall failed for MSVC 14.44 ($arch)" }
+          foreach ($line in $environment) {
+            if ($line -match '^(INCLUDE|LIB|LIBPATH|PATH|VCToolsInstallDir|VCToolsVersion|VCINSTALLDIR|WindowsSdkDir|WindowsSDKVersion|UniversalCRTSdkDir|UCRTVersion)=(.*)$') {
+              "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV
+            }
+          }
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the app and the MSIX package
+        shell: pwsh
+        run: ./Windows/build.ps1 -Platform ${{ matrix.platform }} -Configuration Release -Package
+
+      # After the build, which generates SecretKey.swift from its template, as on the Mac.
+      - name: Core tests
+        shell: pwsh
+        working-directory: Windows/Core
+        run: swift test
+
+      - name: Self-test
+        shell: pwsh
+        run: ./Windows/selftest.ps1 -Report "$env:RUNNER_TEMP/selftest-report.json"
+
+      - name: Upload the self-test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-report-${{ matrix.platform }}
+          path: ${{ runner.temp }}/selftest-report.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload the MSIX package
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetNewsWire-${{ matrix.platform }}-msix
+          path: Windows/App/AppPackages/**/*.msix
+          retention-days: 7
+
+  # Canary: the latest Swift development snapshot (LLVM 24) on plain Visual Studio 2026, with no
+  # toolset workaround. Released Swift (6.4.3, Clang 21) can't use VS 2026's C++ library, which needs
+  # Clang 22; when this job passes, the workaround above can go once that Swift is released.
+  # It doesn't block: development snapshots break for reasons of their own.
+  windows-swift-development:
+    name: Windows x64 (Swift development snapshot, VS 2026)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        shell: pwsh
+        run: |
+          git init --quiet .
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git fetch --quiet --no-tags --depth=1 --filter=blob:none origin ${{ github.sha }}
+          git sparse-checkout set --cone Modules Windows Themes buildscripts
+          git -c core.protectNTFS=false checkout --quiet --force ${{ github.sha }}
+
+      - name: Install the Swift development snapshot
+        uses: SwiftyLab/setup-swift@d60245579ea3836a3f2fa65ebbe1e8891d577c76
+        with:
+          development: true
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        shell: pwsh
+        run: |
+          swift --version
+          ./Windows/build.ps1 -Platform x64 -Configuration Release
+
+      - name: Core tests
+        shell: pwsh
+        working-directory: Windows/Core
+        run: swift test

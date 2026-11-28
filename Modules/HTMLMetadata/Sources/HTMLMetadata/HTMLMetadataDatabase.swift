@@ -8,7 +8,9 @@
 import Foundation
 import RSCore
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 public final actor HTMLMetadataDatabase {
 
@@ -58,10 +60,7 @@ public final actor HTMLMetadataDatabase {
 		database.runCreateStatements(Self.tableCreationStatements)
 		self.database = database
 
-		NotificationCenter.default.addObserver(
-			self, selector: #selector(handleAppDidGoToBackground(_:)),
-			name: .appDidGoToBackground, object: nil
-		)
+		NotificationCenter.default.addObserver(self, name: .appDidGoToBackground) { $0.handleAppDidGoToBackground($1) }
 
 		Task {
 			await performStartupMaintenance()
@@ -77,7 +76,7 @@ public final actor HTMLMetadataDatabase {
 		database.vacuum()
 	}
 
-	@objc nonisolated func handleAppDidGoToBackground(_ notification: Notification) {
+	nonisolated func handleAppDidGoToBackground(_ notification: Notification) {
 		Task {
 			await emptyCache()
 		}

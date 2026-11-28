@@ -11,4 +11,6 @@ import Foundation
 public typealias VoidBlock = @Sendable () -> Void
 public typealias VoidCompletionBlock = VoidBlock
 
+#if os(macOS) || os(iOS) || os(Windows)
 public typealias ImageResultBlock = @MainActor (RSImage?) -> Void
+#endif

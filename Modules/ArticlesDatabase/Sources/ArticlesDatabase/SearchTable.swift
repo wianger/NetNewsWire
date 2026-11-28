@@ -9,7 +9,9 @@
 import Foundation
 import RSCore
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import Articles
 import RSParser
 

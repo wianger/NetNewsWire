@@ -107,6 +107,13 @@
         "identifier" : "ImagesTests",
         "name" : "ImagesTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/ArticleRendering",
+        "identifier" : "ArticleRenderingTests",
+        "name" : "ArticleRenderingTests"
+      }
     }
   ],
   "version" : 1

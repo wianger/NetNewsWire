@@ -7,9 +7,17 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#else
+import RSCore
+#endif
+#if canImport(SQLite3)
 import SQLite3
+#endif
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 
 /// DELETE avoids the extra -wal and -shm files. WAL makes frequent small writes faster.
 public enum JournalMode: String, Sendable {
@@ -137,3 +145,10 @@ private extension DatabaseQueue {
 		database.setShouldCacheStatements(true)
 	}
 }
+
+#if !canImport(ObjectiveC)
+/// Autorelease pools exist only with the Objective-C runtime.
+private func autoreleasepool<Result>(invoking body: () throws -> Result) rethrows -> Result {
+	try body()
+}
+#endif

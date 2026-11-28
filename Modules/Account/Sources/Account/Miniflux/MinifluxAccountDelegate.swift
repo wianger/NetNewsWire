@@ -13,7 +13,9 @@ import RSCore
 import RSParser
 import RSWeb
 import SyncDatabase
+#if canImport(os)
 import os
+#endif
 import Secrets
 
 @MainActor final class MinifluxAccountDelegate: AccountDelegate {
@@ -71,7 +73,7 @@ import Secrets
 		syncDatabase = SyncDatabase(databasePath: databaseFilePath)
 		caller = MinifluxAPICaller()
 
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: refreshProgress)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange, object: refreshProgress) { $0.progressInfoDidChange($1) }
 	}
 
 	func receiveRemoteNotification(userInfo: [AnyHashable: Any]) async {
@@ -580,7 +582,7 @@ import Secrets
 	}
 
 	// MARK: - Notifications
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		progressInfo = refreshProgress.progressInfo
 	}
 }
@@ -644,7 +646,7 @@ private extension MinifluxAccountDelegate {
 
 	/// Folders match categories by externalID, not name, so renaming a category keeps its folder.
 	func syncFolders(_ account: Account, _ categories: [MinifluxCategory]) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Miniflux: Syncing folders with \(categories.count) categories")
 
@@ -677,7 +679,7 @@ private extension MinifluxAccountDelegate {
 	}
 
 	func syncFeeds(_ account: Account, _ feeds: [MinifluxFeed]) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Miniflux: Syncing feeds with \(feeds.count) feeds")
 
@@ -720,7 +722,7 @@ private extension MinifluxAccountDelegate {
 
 	/// A feed’s folder comes from its category on every refresh, so there’s no `folderRelationship` bookkeeping.
 	func syncFeedFolderRelationship(_ account: Account, _ feeds: [MinifluxFeed]) {
-		assert(Thread.isMainThread)
+		assert(Thread.isMainQueue)
 
 		Self.logger.info("Miniflux: Syncing feed folder relationships")
 

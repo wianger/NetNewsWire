@@ -5,7 +5,11 @@
 //  Created by Brent Simmons on 11/5/26.
 //
 
+#if canImport(CoreGraphics)
 import CoreGraphics
+#else
+import Foundation
+#endif
 import Testing
 import RSCore
 

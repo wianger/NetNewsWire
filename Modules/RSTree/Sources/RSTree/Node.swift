@@ -48,7 +48,7 @@ import Foundation
 	}
 
 	public init(representedObject: AnyObject, parent: Node?) {
-		precondition(Thread.isMainThread)
+		MainActor.preconditionIsolated()
 
 		self.representedObject = representedObject
 		self.parent = parent

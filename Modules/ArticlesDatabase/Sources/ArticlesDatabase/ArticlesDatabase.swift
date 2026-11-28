@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSDatabase
 import RSParser

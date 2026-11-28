@@ -7,7 +7,12 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(os)
 import os
+#endif
 import RSParser
 import RSWeb
 import RSCore

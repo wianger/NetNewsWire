@@ -7,10 +7,14 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
 import RSCore
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import Synchronization
 import Articles
 

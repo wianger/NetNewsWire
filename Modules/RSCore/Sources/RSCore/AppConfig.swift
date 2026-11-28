@@ -10,12 +10,22 @@ import Foundation
 
 @MainActor public final class AppConfig {
 
+#if canImport(Darwin)
 	public static let appName: String = (Bundle.main.infoDictionary!["CFBundleExecutable"]! as! String)
+#else
+	// Windows and Linux executables have no Info.plist.
+	public static let appName: String = (Bundle.main.infoDictionary?["CFBundleExecutable"] as? String) ?? "NetNewsWire"
+#endif
 
 	public static let cacheFolder: URL = {
 
 		let folderURL: URL
 
+#if os(Windows)
+		// The system caches directory is %LOCALAPPDATA% itself, shared by every app.
+		folderURL = windowsLocalAppDataFolder.appending(path: "Caches", directoryHint: .isDirectory)
+		createFolderIfNecessary(folderURL)
+#else
 		if let userCacheFolder = try? FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true) {
 			folderURL = userCacheFolder
 		} else {
@@ -24,6 +34,7 @@ import Foundation
 			folderURL = URL(fileURLWithPath: tempFolder, isDirectory: true)
 			createFolderIfNecessary(folderURL)
 		}
+#endif
 
 		return folderURL
 	}()
@@ -40,6 +51,12 @@ import Foundation
 		dataFolder = dataFolder.appendingPathComponent(appName)
 #elseif os(iOS)
 		var dataFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+#elseif os(Windows)
+		// %LOCALAPPDATA%, not the roaming folder: the databases are large and machine-specific.
+		let dataFolder = windowsLocalAppDataFolder
+#else
+		let applicationSupportFolder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+		let dataFolder = unitTestFolder ?? applicationSupportFolder.appending(path: appName, directoryHint: .isDirectory)
 #endif
 
 		createFolderIfNecessary(dataFolder)
@@ -70,6 +87,24 @@ import Foundation
 }
 
 private extension AppConfig {
+
+#if !canImport(Darwin)
+	/// Shared with Platform's data folder lookup, so a test process has one data folder.
+	static var unitTestFolder: URL? {
+		Platform.unitTestDataFolder
+	}
+#endif
+
+#if os(Windows)
+	/// %LOCALAPPDATA%\\<appName>, the root of everything NetNewsWire stores on Windows.
+	static let windowsLocalAppDataFolder: URL = {
+		if let unitTestFolder {
+			return unitTestFolder
+		}
+		let localAppData = ProcessInfo.processInfo.environment["LOCALAPPDATA"] ?? NSTemporaryDirectory()
+		return URL(filePath: localAppData, directoryHint: .isDirectory).appending(path: appName, directoryHint: .isDirectory)
+	}()
+#endif
 
 	static func createFolderIfNecessary(_ folderURL: URL) {
 		try! FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)

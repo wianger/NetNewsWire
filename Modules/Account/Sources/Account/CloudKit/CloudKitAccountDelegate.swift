@@ -7,10 +7,15 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import CloudKit
 import ErrorLog
 import SystemConfiguration
+#if canImport(os)
 import os
+#endif
 import ActivityLog
 import RSCore
 import RSParser

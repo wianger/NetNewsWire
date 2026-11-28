@@ -58,7 +58,7 @@ import Foundation
 
 	/// Add an operation to the queue.
 	public func add(_ operation: MainThreadOperation) {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 
 		operation.operationQueue = self
 
@@ -81,7 +81,7 @@ import Foundation
 
 	/// Cancel all the current and pending operations.
 	public func cancelAll() {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		var operationsToCancel = Set(pendingOperations)
 		if let currentOperation {
 			operationsToCancel.insert(currentOperation)
@@ -95,7 +95,7 @@ import Foundation
 	///
 	/// It’s a convenience — better than calling `operation.cancel()` one-by-one.
 	public func cancel(_ operations: [MainThreadOperation]) {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		for operation in operations {
 			operation.cancel()
 			if isTrackingProgress {
@@ -112,7 +112,7 @@ import Foundation
 	/// This will cancel the current operation, not just pending operations,
 	/// if it has the specified name.
 	public func cancel(named name: String) {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		guard let operationsToCancel = pendingAndCurrentOperations(named: name) else {
 			return
 		}
@@ -123,19 +123,19 @@ import Foundation
 	/// The current operation, if there is one, will run to completion —
 	/// it will not be canceled.
 	public func suspend() {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		isSuspended = true
 	}
 
 	/// Resume running operations.
 	public func resume() {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 		isSuspended = false
 		runNextOperationIfNeeded()
 	}
 
 	public func operationDidComplete(_ operation: MainThreadOperation) {
-		precondition(Thread.isMainThread)
+		precondition(Thread.isMainQueue)
 
 		operation.callCompletionBlock()
 		operation.noteDidComplete()

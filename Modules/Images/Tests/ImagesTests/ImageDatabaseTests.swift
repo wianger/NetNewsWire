@@ -8,7 +8,9 @@
 import Foundation
 import Testing
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import RSWeb
 @testable import Images
 

@@ -22,9 +22,23 @@ import Testing
 		return Array("<?xml version=\(q)1.0\(q) encoding=\(q)\(encodingName)\(q)?>".utf8)
 	}
 
+#if canImport(Darwin)
 	private static func cfEnc(_ cf: CFStringEncodings) -> String.Encoding {
 		String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(cf.rawValue)))
 	}
+#else
+	/// `kCFStringEncoding…` values from CFStringEncodingExt.h; CoreFoundation is not public here.
+	enum CFStringEncodings: UInt {
+		case isoLatin9 = 0x020F
+		case EUC_KR = 0x0940
+		case KOI8_R = 0x0A02
+		case big5 = 0x0A03
+	}
+
+	private static func cfEnc(_ cf: CFStringEncodings) -> String.Encoding {
+		String.Encoding(rawValue: 0x8000_0000 | cf.rawValue)
+	}
+#endif
 
 	/// Build a declaration + `<a>…</a>` body from encoded content bytes, run it
 	/// through `XMLEncoding.toUTF8`, and assert the result (as UTF-8 string)
@@ -37,7 +51,16 @@ import Testing
 			Issue.record("Foundation couldn't encode \(text.debugDescription) as \(encoding)", sourceLocation: sourceLocation)
 			return
 		}
-		let input = decl(name) + Array("<a>".utf8) + Array(encoded) + Array("</a>".utf8)
+		assertRoundTrip(text: text, encodedBytes: Array(encoded), declaredAs: name, sourceLocation: sourceLocation)
+	}
+
+	/// For encodings that Foundation can decode but not encode everywhere (Foundation on
+	/// Windows can't encode EUC-JP or GBK), with the encoded bytes given directly.
+	private func assertRoundTrip(text: String,
+	                             encodedBytes encoded: [UInt8],
+	                             declaredAs name: String,
+	                             sourceLocation: SourceLocation = #_sourceLocation) {
+		let input = decl(name) + Array("<a>".utf8) + encoded + Array("</a>".utf8)
 		let result = XMLEncoding.toUTF8(input)
 		let resultString = String(decoding: result, as: UTF8.self)
 		#expect(resultString.contains("<a>\(text)</a>"),
@@ -169,7 +192,7 @@ import Testing
 	}
 
 	@Test func eucJP() {
-		assertRoundTrip(text: "日本語", via: .japaneseEUC, declaredAs: "euc-jp")
+		assertRoundTrip(text: "日本語", encodedBytes: [0xC6, 0xFC, 0xCB, 0xDC, 0xB8, 0xEC], declaredAs: "euc-jp")
 	}
 
 	@Test func windows1251Cyrillic() {
@@ -200,6 +223,6 @@ import Testing
 		// GB2312 is a narrower charset that Foundation won't let us encode arbitrary
 		// Chinese into; it's covered end-to-end by RSSParserTests.feedWithGB2312Encoding.
 		// Here we cover the broader GBK path.
-		assertRoundTrip(text: "简体中文", via: Self.cfEnc(.GBK_95), declaredAs: "gbk")
+		assertRoundTrip(text: "简体中文", encodedBytes: [0xBC, 0xF2, 0xCC, 0xE5, 0xD6, 0xD0, 0xCE, 0xC4], declaredAs: "gbk")
 	}
 }

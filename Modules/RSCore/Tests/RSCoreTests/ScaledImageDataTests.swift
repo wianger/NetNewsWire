@@ -5,6 +5,9 @@
 //  Created by Brent Simmons on 10/25/26.
 //
 
+// CGImage and ImageIO exist only on Apple platforms, as does the code under test.
+#if canImport(ImageIO)
+
 import Foundation
 import Testing
 import CoreGraphics
@@ -82,3 +85,5 @@ private func imageType(_ data: Data) -> String? {
 	}
 	return CGImageSourceGetType(imageSource) as String?
 }
+
+#endif

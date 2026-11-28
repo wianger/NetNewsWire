@@ -36,7 +36,7 @@ import RSWeb
 	}
 
 	init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .progressInfoDidChange) { $0.progressInfoDidChange($1) }
 	}
 
 	func start() {
@@ -47,7 +47,7 @@ import RSWeb
 		isStarted = false
 	}
 
-	@objc func progressInfoDidChange(_ notification: Notification) {
+	func progressInfoDidChange(_ notification: Notification) {
 		guard isStarted else {
 			return
 		}

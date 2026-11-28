@@ -7,7 +7,10 @@
 //
 
 import Foundation
+#if canImport(os)
 import os
+#endif
+import RSCore
 import RSParser
 import CloudKit
 import Articles

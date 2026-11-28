@@ -83,25 +83,25 @@ public final class Folder: SidebarItem, Renamable, Container, Hashable {
 		Folder.incrementingID += 1
 		self.folderID = folderID
 
-		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(childrenDidChange(_:)), name: .ChildrenDidChange, object: self)
+		NotificationCenter.default.addMainActorObserver(self, name: .UnreadCountDidChange) { $0.unreadCountDidChange($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .ChildrenDidChange, object: self) { $0.childrenDidChange($1) }
 	}
 
 	// MARK: - Notifications
 
-	@objc func unreadCountDidChange(_ note: Notification) {
+	func unreadCountDidChange(_ note: Notification) {
 		if let object = note.object {
 			if objectIsChild(object as AnyObject) {
-				CoalescingQueue.standard.add(self, #selector(updateUnreadCount))
+				CoalescingQueue.standard.add(self, id: "updateUnreadCount") { $0.updateUnreadCount() }
 			}
 		}
 	}
 
-	@objc func childrenDidChange(_ note: Notification) {
+	func childrenDidChange(_ note: Notification) {
 		updateUnreadCount()
 	}
 
-	@objc func updateUnreadCount() {
+	func updateUnreadCount() {
 		var updatedUnreadCount = 0
 		for feed in topLevelFeeds {
 			updatedUnreadCount += feed.unreadCount

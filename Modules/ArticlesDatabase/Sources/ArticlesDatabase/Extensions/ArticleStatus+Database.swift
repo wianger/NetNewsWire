@@ -8,7 +8,9 @@
 
 import Foundation
 import RSDatabase
+#if canImport(RSDatabaseObjC)
 import RSDatabaseObjC
+#endif
 import Articles
 
 extension ArticleStatus {

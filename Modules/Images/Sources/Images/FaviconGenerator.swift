@@ -20,15 +20,15 @@ import Account
 	private var cache = [String: IconImage]() // feedURL: IconImage
 
 	private init() {
-		NotificationCenter.default.addObserver(self, selector: #selector(handleLowMemory(_:)), name: .lowMemory, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidGoToBackground(_:)), name: .appDidGoToBackground, object: nil)
+		NotificationCenter.default.addMainActorObserver(self, name: .lowMemory, object: nil) { $0.handleLowMemory($1) }
+		NotificationCenter.default.addMainActorObserver(self, name: .appDidGoToBackground, object: nil) { $0.handleAppDidGoToBackground($1) }
 	}
 
-	@objc func handleLowMemory(_ notification: Notification) {
+	func handleLowMemory(_ notification: Notification) {
 		cache.removeAll()
 	}
 
-	@objc func handleAppDidGoToBackground(_ notification: Notification) {
+	func handleAppDidGoToBackground(_ notification: Notification) {
 		cache.removeAll()
 	}
 
@@ -42,7 +42,12 @@ import Account
 		}
 
 		let colorHash = ColorHash(feed.url)
-		if let favicon = template.maskWithColor(color: colorHash.color.cgColor) {
+#if os(Windows)
+		let maskColor = colorHash.color
+#else
+		let maskColor = colorHash.color.cgColor
+#endif
+		if let favicon = template.maskWithColor(color: maskColor) {
 			let iconImage = IconImage(favicon, isBackgroundSuppressed: true)
 			cache[feed.url] = iconImage
 			return iconImage

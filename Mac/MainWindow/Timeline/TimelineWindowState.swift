@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Articles
 
 final class TimelineWindowState: NSObject, NSSecureCoding {
 
