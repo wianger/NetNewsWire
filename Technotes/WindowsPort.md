@@ -332,7 +332,10 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 - 运行器镜像已经换成 Visual Studio 2026（MSVC 14.52），它的 C++ 标准库要求 Clang 22，比 Swift 6.4 自带的 Clang 新。镜像同时装有 VS 2022 的 14.44 工具集，但 Swift Build 总是选最新的 Visual Studio 里最新的工具集（`SWBWindowsPlugin.cachedLatestVSInstallDirectory`），没有覆盖的办法。CI 在临时运行器上把更新的工具集挪开，再用 `vcvarsall -vcvars_ver=14.44` 重新设置构建环境。这一点值得向 Swift Build 反馈：它应当尊重 `VCToolsVersion`。
 - `SecretKey.swift` 由构建脚本从模板生成，所以核心测试放在构建之后。
 
-还没做：正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
+还没做：
+- 需要账号或密钥：正式签名和更新渠道（Azure Trusted Signing 或代码签名证书，`.appinstaller` 或 Microsoft Store）；阅读器视图（Mercury API key）；Feedbin、Feedly、Inoreader（NetNewsWire 的 API 协议或密钥）；NewsBlur 的真实服务器验证。
+- 需要人工：用 Narrator 走一遍、高对比度主题检查、真实的拖放手势。
+- 可以直接做：从 `netnewswire://theme/` 链接下载安装主题；Windows 上的本地化（模块里的 `.xcstrings` 目前不被编译，应用界面的文字是写死的英文）。
 
 ## 5. 里程碑
 
