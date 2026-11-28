@@ -2,8 +2,10 @@
 """Writes the Windows app's string resources from strings.json (English, the source of truth).
 
 English goes to App/Strings/en-US/Resources.resw. For each language the Mac app is translated
-into, a string whose English text the Mac's string catalogs (*.xcstrings) also have gets the
-Mac's translation, so the platforms read the same; the rest falls back to English at run time.
+into, or that translations/<language>.json has: a string whose English text the Mac's string
+catalogs (*.xcstrings) also have gets the Mac's translation, so the platforms read the same;
+otherwise the Windows translation from translations/<language>.json (marked for review there);
+anything left falls back to English at run time.
 The Mac's %@ and %1$@ placeholders become .NET's {0}. Run it again when strings.json or the
 Mac's catalogs change.
 """
@@ -85,15 +87,23 @@ def main():
     write_resw('en-US', strings)
     write_english_fallback()
     translations = mac_translations()
-    languages = sorted({language for by_language in translations.values() for language in by_language})
-    for language in languages:
+    windows_translations = {path.stem: json.loads(path.read_text(encoding='utf-8'))
+                            for path in sorted((windows / 'Localization' / 'translations').glob('*.json'))}
+    mac_languages = {language for by_language in translations.values() for language in by_language}
+    for language in sorted(mac_languages | set(windows_translations)):
         translated = {}
+        from_mac = 0
         for key, english in strings.items():
+            # The Mac's translation first, so the platforms read the same; then Windows' own.
             translation = translations.get(dotnet_placeholders_to_generic(english), {}).get(language)
             if translation and translation.count('{') == english.count('{'):
                 translated[key] = translation
-        write_resw(language, translated, f' and the Mac app\'s {language} translations')
-        print(f'{language}: {len(translated)} of {len(strings)} strings from the Mac app; the rest fall back to English')
+                from_mac += 1
+            elif windows_translations.get(language, {}).get(key):
+                translated[key] = windows_translations[language][key]
+        write_resw(language, translated, f', the Mac app\'s {language} translations, and translations/{language}.json')
+        print(f'{language}: {from_mac} strings from the Mac app, {len(translated) - from_mac} from translations/{language}.json, '
+              f'{len(strings) - len(translated)} falling back to English')
 
 
 if __name__ == '__main__':

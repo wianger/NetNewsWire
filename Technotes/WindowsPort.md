@@ -340,7 +340,8 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 
 **本地化（已完成框架和西班牙语）**：用 WinUI 的资源系统（MRT Core）：`App/Strings/<语言>/Resources.resw`，XAML 用 `x:Uid`，代码用 `Loc.Get` / `Loc.Format`（基于 Windows App SDK 的 `ResourceLoader`），语言跟随 Windows 显示语言，Native AOT 下可用。英文的唯一来源是 `Windows/Localization/strings.json`（151 条）；`Windows/Localization/generate.py` 生成 en-US 资源、内置英文后备（`Loc.English.g.cs`，资源加载失败时用），并且对 Mac 已翻译的每种语言，凡是英文原文与 Mac 字符串目录（`*.xcstrings`）里相同的，直接复用 Mac 的译文（把 Mac 的 `%@` 换成 .NET 的 `{0}`），保证两个平台用词一致。Mac 目前只有西班牙语，复用了 43 条（工具栏、侧栏、排序、字号等）；其余是 Windows 特有的措辞（对话框、账户窗口），暂时回退到英文。智能订阅源和本机账户的名称由核心给英文，应用按类型换成当前语言。启动参数 `--language <标签>` 可以不改系统语言来试某种语言。自测在英文和西班牙语下都通过：工具栏 “Actualizar”（来自 `x:Uid`），侧栏 “Todos los no leídos”，没有译文的字符串回退到英文；自测按钮按当前语言的文字查找，不再依赖英文。
 
-- 还可以做：补齐 Windows 特有字符串的西班牙语译文；增加 Mac 没有的语言（例如简体中文）。这些译文需要母语者审校。核心返回的错误信息仍是英文（核心的 `.xcstrings` 在 Windows 上不被编译）。
+- 补齐了西班牙语（Mac 的 43 条 + Windows 特有的 108 条），新增简体中文（151 条，Mac 没有这门语言）。Windows 特有的译文放在 `Windows/Localization/translations/<语言>.json`，文件里标明“需要母语者审校”；有 Mac 译文的地方以 Mac 的为准，两个平台用词一致（西班牙语沿用 Mac 的“fuente”“destacados”等）。自测在简体中文和西班牙语下都通过（工具栏“刷新”/“Actualizar”，侧栏“全部未读”/“Todos los no leídos”，对话框“无法添加订阅源”/“No se pudo añadir la fuente”）。
+- 还没做：核心返回的错误信息仍是英文（核心的 `.xcstrings` 在 Windows 上不被编译）。
 
 ## 5. 里程碑
 
