@@ -327,6 +327,11 @@ URLSession 的问题和社区报告一致：传输期间 libdispatch 循环忙�
 
 **Windows CI**：`.github/workflows/windows.yml`，x64（`windows-latest`）和 ARM64（`windows-11-arm`，GitHub 为公开仓库免费提供）两个作业：安装 Swift 6.4.3（`SwiftyLab/setup-swift`，支持所有 GitHub 运行器，包括 Windows ARM64；第三方动作按提交固定）和 .NET 10，跑核心测试，Release（AOT）构建并打包 MSIX，跑端到端自测，上传自测报告和 MSIX。本机没有 ARM64 的 Swift 运行时，也没有 ARM64 机器，ARM64 由这个作业原生构建和测试。
 
+**Windows CI 跑通（x64 和 ARM64）**：两个作业都通过：Release（Native AOT）构建、63 MB 的 MSIX、核心 21 个测试、端到端自测（刷新、25 篇文章、WebView2 渲染）。ARM64 第一次被构建和运行（运行时依赖分析在 ARM64 上选出 18 个 DLL）。CI 运行器上没有交互式的通知服务，所以 `notificationsAvailable` 为 false，自测不要求通知。调通过程中解决的问题：
+- 上游仓库里有 App Store 截图的路径含 `"`，Windows 上无法检出。改为只检出 Windows 构建用到的目录（稀疏检出）；git 在 Windows 上仍会检查提交里的每个路径（`core.protectNTFS`），所以只在这一次检出时放宽，被排除的目录本来就不会写到磁盘。
+- 运行器镜像已经换成 Visual Studio 2026（MSVC 14.52），它的 C++ 标准库要求 Clang 22，比 Swift 6.4 自带的 Clang 新。镜像同时装有 VS 2022 的 14.44 工具集，但 Swift Build 总是选最新的 Visual Studio 里最新的工具集（`SWBWindowsPlugin.cachedLatestVSInstallDirectory`），没有覆盖的办法。CI 在临时运行器上把更新的工具集挪开，再用 `vcvarsall -vcvars_ver=14.44` 重新设置构建环境。这一点值得向 Swift Build 反馈：它应当尊重 `VCToolsVersion`。
+- `SecretKey.swift` 由构建脚本从模板生成，所以核心测试放在构建之后。
+
 还没做：正式签名和更新渠道（Azure Trusted Signing、`.appinstaller` 或 Store）、后台刷新、ARM64 构建（需要 ARM64 的 Swift 运行时）。
 
 ## 5. 里程碑
