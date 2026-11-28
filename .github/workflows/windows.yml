@@ -77,14 +77,15 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Build the app and the MSIX package
+        shell: pwsh
+        run: ./Windows/build.ps1 -Platform ${{ matrix.platform }} -Configuration Release -Package
+
+      # After the build, which generates SecretKey.swift from its template, as on the Mac.
       - name: Core tests
         shell: pwsh
         working-directory: Windows/Core
         run: swift test
-
-      - name: Build the app and the MSIX package
-        shell: pwsh
-        run: ./Windows/build.ps1 -Platform ${{ matrix.platform }} -Configuration Release -Package
 
       - name: Self-test
         shell: pwsh
