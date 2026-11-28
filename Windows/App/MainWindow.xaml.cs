@@ -90,7 +90,7 @@ public sealed partial class MainWindow : Window
         {
             if (FindDescendant<TreeViewList>(SidebarTree) is { } list)
             {
-                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, "Sidebar");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, Loc.Get("Sidebar"));
             }
         };
 
@@ -108,7 +108,7 @@ public sealed partial class MainWindow : Window
         StatusText.Text = SwiftCore.Version;
         await Sidebar.ReloadAsync();
         UpdateTitle();
-        await articleView.ShowMessageAsync("No selection");
+        await articleView.ShowMessageAsync(Loc.Get("NoSelection"));
         if (Sidebar.Find("smart:unread") is { } unread && unread.Selection is { } selection)
         {
             isSyncingSelection = true;
@@ -165,7 +165,7 @@ public sealed partial class MainWindow : Window
                     await NotificationService.RemoveAsync(readIDs);
                     break;
                 case "refreshProgress" when coreEvent.Progress is { } progress:
-                    StatusText.Text = progress.IsComplete ? "" : $"Refreshing — {progress.NumberCompleted} of {progress.NumberOfTasks}";
+                    StatusText.Text = progress.IsComplete ? "" : Loc.Format("RefreshingProgress", progress.NumberCompleted, progress.NumberOfTasks);
                     break;
             }
         }
@@ -202,7 +202,7 @@ public sealed partial class MainWindow : Window
         {
             await Timeline.LoadAsync(selection);
             shownArticle = null;
-            await articleView.ShowMessageAsync(Timeline.Items.Count == 0 ? "No articles" : "No selection");
+            await articleView.ShowMessageAsync(Timeline.Items.Count == 0 ? Loc.Get("NoArticles") : Loc.Get("NoSelection"));
         }
         catch (CoreException e)
         {
@@ -219,22 +219,22 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         if (node.Kind is SidebarNodeKind.Feed)
         {
-            menu.Items.Add(MenuItem("Get Info", "\uE946", () => ShowFeedInfoAsync(node)));
+            menu.Items.Add(MenuItem(Loc.Get("GetInfo"), "\uE946", () => ShowFeedInfoAsync(node)));
         }
         if (node.Kind is SidebarNodeKind.Feed or SidebarNodeKind.Folder)
         {
-            menu.Items.Add(MenuItem("Rename…", "", () => RenameAsync(node)));
-            menu.Items.Add(MenuItem("Delete", "", () => DeleteAsync(node)));
+            menu.Items.Add(MenuItem(Loc.Get("RenameEllipsis"), "", () => RenameAsync(node)));
+            menu.Items.Add(MenuItem(Loc.Get("Delete"), "", () => DeleteAsync(node)));
         }
         if (node.Kind is SidebarNodeKind.Feed && node.Feed?.HomePageURL is { } homePage)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(MenuItem("Open Home Page", "", () => LaunchAsync(homePage)));
+            menu.Items.Add(MenuItem(Loc.Get("OpenHomePage"), "", () => LaunchAsync(homePage)));
         }
         if (node.Selection is not null)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(MenuItem("Mark All as Read", "", async () =>
+            menu.Items.Add(MenuItem(Loc.Get("MarkAllAsRead"), "", async () =>
             {
                 SidebarTree.SelectedItem = node;
                 await ShowSelectionAsync(node.Selection);
@@ -296,7 +296,7 @@ public sealed partial class MainWindow : Window
             if (toFolderID != fromFolderID)
             {
                 await SwiftCore.MoveFeedAsync(feed.AccountID, feed.FeedID, fromFolderID, toFolderID);
-                StatusText.Text = $"Moved {node.Name}";
+                StatusText.Text = Loc.Format("MovedFeed", node.Name);
             }
         }
         catch (CoreException e)
@@ -331,7 +331,7 @@ public sealed partial class MainWindow : Window
             {
                 case 0:
                     shownArticle = null;
-                    await articleView.ShowMessageAsync("No selection");
+                    await articleView.ShowMessageAsync(Loc.Get("NoSelection"));
                     break;
                 case 1:
                     var item = selected[0];
@@ -349,7 +349,7 @@ public sealed partial class MainWindow : Window
                     break;
                 default:
                     shownArticle = null;
-                    await articleView.ShowMessageAsync("Multiple selection");
+                    await articleView.ShowMessageAsync(Loc.Get("MultipleSelection"));
                     break;
             }
         }
@@ -381,7 +381,7 @@ public sealed partial class MainWindow : Window
             SortMenu.Items.Add(item);
         }
         SortMenu.Items.Add(new MenuFlyoutSeparator());
-        var group = new ToggleMenuFlyoutItem { Text = "Group by Feed", IsChecked = settings.TimelineGroupByFeed, IsEnabled = settings.TimelineSortKey == "date" };
+        var group = new ToggleMenuFlyoutItem { Text = Loc.Get("GroupByFeed"), IsChecked = settings.TimelineGroupByFeed, IsEnabled = settings.TimelineSortKey == "date" };
         group.Click += (_, _) => ChangeSort(settings.TimelineSortKey, settings.TimelineSortAscending, !settings.TimelineGroupByFeed);
         SortMenu.Items.Add(group);
     }
@@ -458,8 +458,8 @@ public sealed partial class MainWindow : Window
         try
         {
             var result = await SwiftCore.RefreshAllAsync();
-            StatusText.Text = !result.DidRefresh ? "Not refreshed: no network connection"
-                : result.Errors.Count == 0 ? "" : $"Refreshed with {result.Errors.Count} error(s): {result.Errors[0]}";
+            StatusText.Text = !result.DidRefresh ? Loc.Get("NotRefreshedOffline")
+                : result.Errors.Count == 0 ? "" : Loc.Format("RefreshedWithErrors", result.Errors.Count, result.Errors[0]);
         }
         catch (CoreException e)
         {
@@ -477,10 +477,10 @@ public sealed partial class MainWindow : Window
     {
         var sidebar = await SwiftCore.GetSidebarAsync();
         var localAccount = sidebar.Accounts.FirstOrDefault(account => account.AccountID == "OnMyMac");
-        var urlBox = new TextBox { PlaceholderText = "https://example.com/feed.xml", Header = "URL", InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Url) } } };
-        var nameBox = new TextBox { PlaceholderText = "Optional", Header = "Name" };
-        var folders = new ComboBox { Header = "Folder", HorizontalAlignment = HorizontalAlignment.Stretch };
-        folders.Items.Add(new ComboBoxItem { Content = "None (top level)", Tag = null });
+        var urlBox = new TextBox { PlaceholderText = "https://example.com/feed.xml", Header = Loc.Get("URL"), InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Url) } } };
+        var nameBox = new TextBox { PlaceholderText = Loc.Get("Optional"), Header = Loc.Get("Name") };
+        var folders = new ComboBox { Header = Loc.Get("Folder"), HorizontalAlignment = HorizontalAlignment.Stretch };
+        folders.Items.Add(new ComboBoxItem { Content = Loc.Get("NoneTopLevel"), Tag = null });
         foreach (var folder in localAccount?.Folders ?? [])
         {
             folders.Items.Add(new ComboBoxItem { Content = folder.Name, Tag = folder.FolderID });
@@ -501,10 +501,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "Add a Feed",
+            Title = Loc.Get("AddAFeed"),
             Content = new StackPanel { Spacing = 12, MinWidth = 400, Children = { urlBox, nameBox, folders } },
-            PrimaryButtonText = "Add",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = Loc.Get("Add"),
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot
         };
@@ -513,13 +513,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        StatusText.Text = $"Finding a feed at {urlBox.Text.Trim()}";
+        StatusText.Text = Loc.Format("FindingFeed", urlBox.Text.Trim());
         try
         {
             var chosenFolderID = (folders.SelectedItem as ComboBoxItem)?.Tag as int?;
             var name = nameBox.Text.Trim();
             var feed = await SwiftCore.SubscribeAsync(urlBox.Text.Trim(), name.Length == 0 ? null : name, folderID: chosenFolderID);
-            StatusText.Text = $"Added {feed.Name}";
+            StatusText.Text = Loc.Format("AddedFeed", feed.Name);
             var key = $"feed:{feed.AccountID}:{chosenFolderID?.ToString() ?? "top"}:{feed.FeedID}";
             await Sidebar.ReloadAsync();
             if (Sidebar.Find(key) is { } node)
@@ -530,7 +530,7 @@ public sealed partial class MainWindow : Window
         catch (CoreException e)
         {
             StatusText.Text = "";
-            await ShowAlertAsync("Couldn’t Add the Feed", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntAddFeed"), e.Message);
         }
     }
 
@@ -582,7 +582,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async Task InstallThemeFromLinkAsync(string url)
     {
-        StatusText.Text = "Downloading the theme";
+        StatusText.Text = Loc.Get("DownloadingTheme");
         string zipPath;
         try
         {
@@ -591,7 +591,7 @@ public sealed partial class MainWindow : Window
         catch (CoreException e)
         {
             StatusText.Text = "";
-            await ShowAlertAsync("Couldn’t Download the Theme", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntDownloadTheme"), e.Message);
             return;
         }
         StatusText.Text = "";
@@ -608,7 +608,7 @@ public sealed partial class MainWindow : Window
             var themePath = Directory.EnumerateDirectories(folder, "*.nnwtheme", SearchOption.AllDirectories).FirstOrDefault();
             if (themePath is null)
             {
-                await ShowAlertAsync("Couldn’t Install the Theme", "There is no NetNewsWire theme in the download.");
+                await ShowAlertAsync(Loc.Get("CouldntInstallTheme"), Loc.Get("NoThemeInDownload"));
                 return;
             }
             var theme = await SwiftCore.InspectThemeAsync(themePath);
@@ -616,23 +616,23 @@ public sealed partial class MainWindow : Window
             var website = new StackPanel { Spacing = 4 };
             if (Uri.TryCreate(theme.CreatorHomePage, UriKind.Absolute, out var homePage) && (homePage.Scheme == Uri.UriSchemeHttp || homePage.Scheme == Uri.UriSchemeHttps))
             {
-                website.Children.Add(new TextBlock { Text = "Author’s website:" });
+                website.Children.Add(new TextBlock { Text = Loc.Get("AuthorsWebsite") });
                 website.Children.Add(new HyperlinkButton { Content = theme.CreatorHomePage, NavigateUri = homePage, Padding = new Thickness(0) });
             }
-            if (await ConfirmThemeAsync($"Install theme “{theme.Name}” by {theme.CreatorName}?", website, "Install Theme") != ContentDialogResult.Primary)
+            if (await ConfirmThemeAsync(Loc.Format("InstallThemeQuestion", theme.Name, theme.CreatorName), website, Loc.Get("InstallTheme")) != ContentDialogResult.Primary)
             {
                 return;
             }
-            if (theme.IsInstalled && await ConfirmThemeAsync($"The theme “{theme.Name}” already exists. Overwrite it?", null, "Overwrite") != ContentDialogResult.Primary)
+            if (theme.IsInstalled && await ConfirmThemeAsync(Loc.Format("ThemeExistsOverwrite", theme.Name), null, Loc.Get("Overwrite")) != ContentDialogResult.Primary)
             {
                 return;
             }
             await SwiftCore.InstallThemeAsync(themePath);
-            await ShowAlertAsync("Theme Installed", $"The theme “{theme.Name}” has been installed.");
+            await ShowAlertAsync(Loc.Get("ThemeInstalled"), Loc.Format("ThemeInstalledMessage", theme.Name));
         }
         catch (Exception e) when (e is CoreException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
-            await ShowAlertAsync("Couldn’t Install the Theme", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntInstallTheme"), e.Message);
         }
         finally
         {
@@ -655,7 +655,7 @@ public sealed partial class MainWindow : Window
             Title = title,
             Content = content,
             PrimaryButtonText = primaryButton,
-            CloseButtonText = "Cancel",
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot
         };
@@ -680,7 +680,11 @@ public sealed partial class MainWindow : Window
         {
             await Task.Delay(1500);
             finalTitle = OpenDialogTitleForSelfTest();
-            PressDialogButtonForSelfTest(finalTitle?.StartsWith("Install theme", StringComparison.Ordinal) == true ? "Install Theme" : finalTitle?.Contains("Overwrite", StringComparison.Ordinal) == true ? "Overwrite" : "OK");
+            // Install Theme, then Overwrite if asked, then OK: whatever the open dialog's main button is, in any language.
+            if (OpenDialogForSelfTest() is { } open)
+            {
+                PressDialogButtonForSelfTest(open.PrimaryButtonText is { Length: > 0 } primary ? primary : open.CloseButtonText);
+            }
         }
         await installing;
         return finalTitle;
@@ -699,10 +703,12 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private string? OpenDialogTitleForSelfTest() =>
+    private ContentDialog? OpenDialogForSelfTest() =>
         Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(Content.XamlRoot)
             .Select(popup => popup.Child as ContentDialog ?? FindDescendant<ContentDialog>(popup.Child))
-            .FirstOrDefault(dialog => dialog is not null)?.Title as string;
+            .FirstOrDefault(dialog => dialog is not null);
+
+    private string? OpenDialogTitleForSelfTest() => OpenDialogForSelfTest()?.Title as string;
 
     // MARK: - Notifications
 
@@ -793,7 +799,7 @@ public sealed partial class MainWindow : Window
         }
         await Task.Delay(300);
         var addFeedURL = addFeedURLForSelfTest?.URL;
-        PressDialogButtonForSelfTest("Cancel");
+        PressDialogButtonForSelfTest(Loc.Get("Cancel"));
         return (lastOpenedURLForSelfTest, addFeedURL);
     }
 
@@ -811,14 +817,14 @@ public sealed partial class MainWindow : Window
         foreach (var account in sidebar.Accounts)
         {
             var row = new Grid { ColumnSpacing = 8, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } } };
-            var active = new CheckBox { Content = account.Name, IsChecked = account.IsActive };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(active, $"{account.Name}, active");
+            var active = new CheckBox { Content = ViewModels.SidebarViewModel.AccountName(account), IsChecked = account.IsActive };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(active, Loc.Format("AccountActive", ViewModels.SidebarViewModel.AccountName(account)));
             active.Click += async (_, _) => await RunAsync(() => SwiftCore.SetAccountActiveAsync(account.AccountID, active.IsChecked == true));
             row.Children.Add(active);
             if (account.AccountID != "OnMyMac")
             {
-                var delete = new Button { Content = "Delete" };
-                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(delete, $"Delete {account.Name}");
+                var delete = new Button { Content = Loc.Get("Delete") };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(delete, Loc.Format("DeleteAccountName", account.Name));
                 Grid.SetColumn(delete, 1);
                 row.Children.Add(delete);
                 delete.Click += (_, _) =>
@@ -833,10 +839,10 @@ public sealed partial class MainWindow : Window
         accountToDelete = null;
         dialog = new ContentDialog
         {
-            Title = "Accounts",
+            Title = Loc.Get("Accounts"),
             Content = new ScrollViewer { Content = list, MaxHeight = 420 },
-            PrimaryButtonText = "Add Account…",
-            CloseButtonText = "Close",
+            PrimaryButtonText = Loc.Get("AddAccountEllipsis"),
+            CloseButtonText = Loc.Get("Close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -857,10 +863,10 @@ public sealed partial class MainWindow : Window
     {
         var confirm = new ContentDialog
         {
-            Title = $"Delete “{account.Name}”?",
-            Content = "Its feeds and articles are removed from this PC. Nothing changes on the server.",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
+            Title = Loc.Format("DeleteAccountQuestion", account.Name),
+            Content = Loc.Get("DeleteAccountExplanation"),
+            PrimaryButtonText = Loc.Get("Delete"),
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -874,7 +880,7 @@ public sealed partial class MainWindow : Window
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Delete the Account", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntDeleteAccount"), e.Message);
         }
     }
 
@@ -886,11 +892,11 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var typeBox = new ComboBox { Header = "Service", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = types.Select(type => type.Name).ToList(), SelectedIndex = 0 };
-        var apiURLBox = new TextBox { Header = "API URL", InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Url) } } };
-        var usernameBox = new TextBox { Header = "Username or email" };
-        var passwordBox = new PasswordBox { Header = "Password" };
-        var tokenBox = new PasswordBox { Header = "API token (instead of a username and password)" };
+        var typeBox = new ComboBox { Header = Loc.Get("Service"), HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = types.Select(type => type.Name).ToList(), SelectedIndex = 0 };
+        var apiURLBox = new TextBox { Header = Loc.Get("APIURL"), InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Url) } } };
+        var usernameBox = new TextBox { Header = Loc.Get("UsernameOrEmail") };
+        var passwordBox = new PasswordBox { Header = Loc.Get("Password") };
+        var tokenBox = new PasswordBox { Header = Loc.Get("APITokenInstead") };
         var signUp = new HyperlinkButton { Padding = new Thickness(0) };
         var progress = new ProgressRing { IsActive = false, Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Left };
         var errorText = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] };
@@ -902,7 +908,7 @@ public sealed partial class MainWindow : Window
             apiURLBox.Visibility = type.NeedsAPIURL ? Visibility.Visible : Visibility.Collapsed;
             apiURLBox.PlaceholderText = type.ApiURLPlaceholder ?? "";
             tokenBox.Visibility = type.AcceptsAPIToken ? Visibility.Visible : Visibility.Collapsed;
-            signUp.Content = $"Don’t have a {type.Name} account? Find out more";
+            signUp.Content = Loc.Format("NoAccountFindOutMore", type.Name);
             signUp.NavigateUri = Uri.TryCreate(type.SignUpURL, UriKind.Absolute, out var uri) ? uri : null;
             errorText.Text = "";
         }
@@ -911,10 +917,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "Add an Account",
+            Title = Loc.Get("AddAnAccount"),
             Content = new StackPanel { Spacing = 12, MinWidth = 420, Children = { typeBox, apiURLBox, usernameBox, passwordBox, tokenBox, signUp, progress, errorText } },
-            PrimaryButtonText = "Sign In",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = Loc.Get("SignIn"),
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot
         };
@@ -953,7 +959,7 @@ public sealed partial class MainWindow : Window
         }
         if (added is not null)
         {
-            StatusText.Text = $"Added {added.Name}. Refreshing.";
+            StatusText.Text = Loc.Format("AddedAccountRefreshing", added.Name);
         }
     }
 
@@ -971,7 +977,7 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var nameBox = new TextBox { Header = "Name", Text = feed.Name, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var nameBox = new TextBox { Header = Loc.Get("Name"), Text = feed.Name, HorizontalAlignment = HorizontalAlignment.Stretch };
         var header = new Grid { ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition() } };
         if (node.Icon is { } icon)
         {
@@ -983,9 +989,9 @@ public sealed partial class MainWindow : Window
         header.Children.Add(nameBox);
 
         var panel = new StackPanel { Spacing = 12, MinWidth = 440, Children = { header } };
-        panel.Children.Add(InfoRow("Home Page", feed.HomePageURL, "Open", "Open the home page in the browser", feed.HomePageURL is { } homePage ? () => LaunchAsync(homePage) : null));
-        var notifyBox = new CheckBox { Content = "Notify about new articles", IsChecked = feed.NotifiesAboutNewArticles, IsEnabled = NotificationService.IsAvailable };
-        panel.Children.Add(InfoRow("Feed URL", feed.Url, "Copy", "Copy the feed URL", () =>
+        panel.Children.Add(InfoRow(Loc.Get("HomePage"), feed.HomePageURL, Loc.Get("Open"), Loc.Get("OpenHomePageInBrowser"), feed.HomePageURL is { } homePage ? () => LaunchAsync(homePage) : null));
+        var notifyBox = new CheckBox { Content = Loc.Get("NotifyAboutNewArticles"), IsChecked = feed.NotifiesAboutNewArticles, IsEnabled = NotificationService.IsAvailable };
+        panel.Children.Add(InfoRow(Loc.Get("FeedURL"), feed.Url, Loc.Get("Copy"), Loc.Get("CopyFeedURL"), () =>
         {
             var package = new global::Windows.ApplicationModel.DataTransfer.DataPackage();
             package.SetText(feed.Url);
@@ -999,8 +1005,8 @@ public sealed partial class MainWindow : Window
         {
             Title = feed.Name,
             Content = panel,
-            PrimaryButtonText = "Save",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = Loc.Get("Save"),
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot
         };
@@ -1033,14 +1039,14 @@ public sealed partial class MainWindow : Window
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Rename", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntRename"), e.Message);
         }
     }
 
     /// <summary>A read-only, selectable value with a button beside it.</summary>
     private static Grid InfoRow(string header, string? value, string buttonText, string buttonName, Func<Task>? action)
     {
-        var box = new TextBox { Header = header, Text = value ?? "", IsReadOnly = true, PlaceholderText = "None" };
+        var box = new TextBox { Header = header, Text = value ?? "", IsReadOnly = true, PlaceholderText = Loc.Get("None") };
         var button = new Button { Content = buttonText, VerticalAlignment = VerticalAlignment.Bottom, IsEnabled = action is not null };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, buttonName);
         if (action is not null)
@@ -1114,7 +1120,7 @@ public sealed partial class MainWindow : Window
         if (data.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.WebLink) || data.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
         {
             e.AcceptedOperation = global::Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "Add Feed";
+            e.DragUIOverride.Caption = Loc.Get("AddFeed");
             e.Handled = true;
         }
     }
@@ -1145,7 +1151,7 @@ public sealed partial class MainWindow : Window
 
     private async Task NewFolderAsync()
     {
-        var name = await PromptAsync("New Folder", "Name", "", "Create");
+        var name = await PromptAsync(Loc.Get("NewFolder"), Loc.Get("Name"), "", Loc.Get("Create"));
         if (string.IsNullOrWhiteSpace(name))
         {
             return;
@@ -1156,13 +1162,13 @@ public sealed partial class MainWindow : Window
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Create the Folder", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntCreateFolder"), e.Message);
         }
     }
 
     private async Task RenameAsync(SidebarNode node)
     {
-        var name = await PromptAsync("Rename", "Name", node.Name, "Rename");
+        var name = await PromptAsync(Loc.Get("Rename"), Loc.Get("Name"), node.Name, Loc.Get("Rename"));
         if (string.IsNullOrWhiteSpace(name) || name == node.Name || node.AccountID is not { } accountID)
         {
             return;
@@ -1180,7 +1186,7 @@ public sealed partial class MainWindow : Window
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Rename", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntRename"), e.Message);
         }
     }
 
@@ -1190,13 +1196,13 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var what = node.Kind == SidebarNodeKind.Folder ? $"the folder “{node.Name}” and its feeds" : $"“{node.Name}”";
+        var what = node.Kind == SidebarNodeKind.Folder ? Loc.Format("TheFolderAndItsFeeds", node.Name) : Loc.Format("QuotedName", node.Name);
         var dialog = new ContentDialog
         {
-            Title = "Delete?",
-            Content = $"Are you sure you want to delete {what}?",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
+            Title = Loc.Get("DeleteQuestion"),
+            Content = Loc.Format("ConfirmDelete", what),
+            PrimaryButtonText = Loc.Get("Delete"),
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -1217,7 +1223,7 @@ public sealed partial class MainWindow : Window
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Delete", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntDelete"), e.Message);
         }
     }
 
@@ -1377,17 +1383,17 @@ public sealed partial class MainWindow : Window
         try
         {
             await SwiftCore.ImportOpmlAsync(file.Path);
-            StatusText.Text = $"Imported {file.Name}";
+            StatusText.Text = Loc.Format("ImportedFile", file.Name);
         }
         catch (CoreException e)
         {
-            await ShowAlertAsync("Couldn’t Import", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntImport"), e.Message);
         }
     }
 
     private async Task ExportOpmlAsync()
     {
-        var picker = new FileSavePicker { SuggestedFileName = "Subscriptions" };
+        var picker = new FileSavePicker { SuggestedFileName = Loc.Get("Subscriptions") };
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
         picker.FileTypeChoices.Add("OPML", [".opml"]);
         if (await picker.PickSaveFileAsync() is not { } file)
@@ -1398,11 +1404,11 @@ public sealed partial class MainWindow : Window
         {
             var opml = await SwiftCore.ExportOpmlAsync();
             await global::Windows.Storage.FileIO.WriteTextAsync(file, opml);
-            StatusText.Text = $"Exported {file.Name}";
+            StatusText.Text = Loc.Format("ExportedFile", file.Name);
         }
         catch (Exception e) when (e is CoreException or IOException or UnauthorizedAccessException)
         {
-            await ShowAlertAsync("Couldn’t Export", e.Message);
+            await ShowAlertAsync(Loc.Get("CouldntExport"), e.Message);
         }
     }
 
@@ -1424,13 +1430,13 @@ public sealed partial class MainWindow : Window
     private async Task ShowSettingsAsync()
     {
         var settings = AppSettings.Current;
-        var themeBox = new ComboBox { Header = "Article theme", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var themeBox = new ComboBox { Header = Loc.Get("ArticleTheme"), HorizontalAlignment = HorizontalAlignment.Stretch };
         var themeCredit = new TextBlock { Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"], Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] };
-        var deleteButton = new Button { Content = "Delete Theme" };
-        var installButton = new Button { Content = "Install Theme…" };
-        var textSizeBox = new ComboBox { Header = "Article text size", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TextSizeNames };
+        var deleteButton = new Button { Content = Loc.Get("DeleteTheme") };
+        var installButton = new Button { Content = Loc.Get("InstallThemeEllipsis") };
+        var textSizeBox = new ComboBox { Header = Loc.Get("ArticleTextSize"), HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TextSizeNames };
         textSizeBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.TextSizes, settings.TextSize));
-        var refreshBox = new ComboBox { Header = "Refresh feeds", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.RefreshIntervalNames };
+        var refreshBox = new ComboBox { Header = Loc.Get("RefreshFeeds"), HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.RefreshIntervalNames };
         refreshBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.RefreshIntervals, settings.RefreshInterval));
         refreshBox.SelectionChanged += (_, _) =>
         {
@@ -1440,7 +1446,7 @@ public sealed partial class MainWindow : Window
                 settings.Save();
             }
         };
-        var thumbnailsBox = new ComboBox { Header = "Timeline thumbnails", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TimelineThumbnailModeNames };
+        var thumbnailsBox = new ComboBox { Header = Loc.Get("TimelineThumbnails"), HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = AppSettings.TimelineThumbnailModeNames };
         thumbnailsBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.TimelineThumbnailModes, settings.TimelineThumbnails));
         thumbnailsBox.SelectionChanged += (_, _) =>
         {
@@ -1464,7 +1470,7 @@ public sealed partial class MainWindow : Window
             if (themeBox.SelectedIndex is var index && index >= 0 && index < themes.Count)
             {
                 var theme = themes[index];
-                themeCredit.Text = theme.IsDefault ? "" : $"By {theme.CreatorName}";
+                themeCredit.Text = theme.IsDefault ? "" : Loc.Format("ByCreator", theme.CreatorName);
                 deleteButton.IsEnabled = !theme.IsAppTheme && !theme.IsDefault;
             }
         }
@@ -1532,7 +1538,7 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "Settings",
+            Title = Loc.Get("Settings"),
             Content = new StackPanel
             {
                 Spacing = 12,
@@ -1547,7 +1553,7 @@ public sealed partial class MainWindow : Window
                     thumbnailsBox
                 }
             },
-            CloseButtonText = "Done",
+            CloseButtonText = Loc.Get("Done"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -1674,7 +1680,7 @@ public sealed partial class MainWindow : Window
             Title = title,
             Content = box,
             PrimaryButtonText = action,
-            CloseButtonText = "Cancel",
+            CloseButtonText = Loc.Get("Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot
         };
@@ -1683,11 +1689,11 @@ public sealed partial class MainWindow : Window
 
     private async Task ShowAlertAsync(string title, string message)
     {
-        var dialog = new ContentDialog { Title = title, Content = message, CloseButtonText = "OK", XamlRoot = Content.XamlRoot };
+        var dialog = new ContentDialog { Title = title, Content = message, CloseButtonText = Loc.Get("OK"), XamlRoot = Content.XamlRoot };
         await dialog.ShowAsync();
     }
 
-    private void ShowError(CoreException e) => StatusText.Text = $"Error: {e.Message}";
+    private void ShowError(CoreException e) => StatusText.Text = Loc.Format("ErrorMessage", e.Message);
 
     // MARK: - Self-test hooks
 
@@ -1775,7 +1781,7 @@ public sealed partial class MainWindow : Window
             await Task.Delay(100);
         }
         await Task.Delay(500);
-        PressDialogButtonForSelfTest("Cancel");
+        PressDialogButtonForSelfTest(Loc.Get("Cancel"));
         await adding;
         return addFeedURLForSelfTest is { } shown ? (shown.URL, shown.FolderID) : (null, null);
     }
@@ -1798,7 +1804,7 @@ public sealed partial class MainWindow : Window
             return null;
         }
         open.NameBox.Text = name;
-        PressDialogButtonForSelfTest("Save");
+        PressDialogButtonForSelfTest(Loc.Get("Save"));
         await showing;
         await Sidebar.ReloadAsync();
         return Sidebar.AllNodes.FirstOrDefault(n => n.Feed?.FeedID == node.Feed?.FeedID)?.Name;
@@ -1825,14 +1831,14 @@ public sealed partial class MainWindow : Window
         open.ApiURL.Text = apiURL;
         open.Username.Text = "self-test";
         open.Password.Password = "not-a-real-password";
-        PressDialogButtonForSelfTest("Sign In");
+        PressDialogButtonForSelfTest(Loc.Get("SignIn"));
         for (var i = 0; i < 300 && open.Error.Text.Length == 0; i++)
         {
             await Task.Delay(100);
         }
         var error = open.Error.Text;
         var stayedOpen = addAccountDialogForSelfTest is not null;
-        PressDialogButtonForSelfTest("Cancel");
+        PressDialogButtonForSelfTest(Loc.Get("Cancel"));
         await adding;
         return (services, error, stayedOpen);
     }
@@ -1869,6 +1875,10 @@ public sealed partial class MainWindow : Window
             return null;
         }
     }
+
+    /// <summary>Strings as shown: a toolbar label (XAML, x:Uid), a sidebar name, and one from code.</summary>
+    internal (string Toolbar, string? Sidebar, string Code) LocalizedStringsForSelfTest() =>
+        ((string)((AppBarButton)Toolbar.PrimaryCommands[0]).Label, Sidebar.Find("smart:unread")?.Name, Loc.Get("CouldntAddFeed"));
 
     internal async Task SelectSidebarItemForSelfTestAsync(string key)
     {

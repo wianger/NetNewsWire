@@ -67,6 +67,14 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // `--language <tag>`, such as es: the app's strings in that language rather than the Windows display
+        // language's, for trying a translation. Before any string is loaded.
+        var languageIndex = Array.IndexOf(Environment.GetCommandLineArgs(), "--language");
+        if (languageIndex >= 0 && Environment.GetCommandLineArgs().Length > languageIndex + 1)
+        {
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = Environment.GetCommandLineArgs()[languageIndex + 1];
+        }
+
         uiQueue = DispatcherQueue.GetForCurrentThread();
         // Before anything else, so a notification click that launched the app is delivered.
         NotificationService.Invoked += arguments => uiQueue?.TryEnqueue(async () =>

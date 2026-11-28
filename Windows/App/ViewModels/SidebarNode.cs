@@ -36,7 +36,7 @@ public sealed partial class SidebarNode(string key, SidebarNodeKind kind) : Obse
     public partial int UnreadCount { get; set; }
 
     /// <summary>What Narrator reads: the name and, as VoiceOver on the Mac, the unread count.</summary>
-    public string AccessibleName => UnreadCount > 0 ? $"{Name}, {UnreadCount:N0} unread" : Name;
+    public string AccessibleName => UnreadCount > 0 ? Loc.Format("NodeUnreadCount", Name, UnreadCount) : Name;
 
     [ObservableProperty]
     public partial bool IsExpanded { get; set; } = true;

@@ -21,7 +21,7 @@ public sealed class SidebarViewModel
         var desired = new List<NodeSpec>();
         foreach (var smartFeed in snapshot.SmartFeeds)
         {
-            desired.Add(new NodeSpec($"smart:{smartFeed.Kind}", SidebarNodeKind.SmartFeed, smartFeed.Name, smartFeed.UnreadCount, new ArticleSelection(smartFeed.Kind)));
+            desired.Add(new NodeSpec($"smart:{smartFeed.Kind}", SidebarNodeKind.SmartFeed, SmartFeedName(smartFeed), smartFeed.UnreadCount, new ArticleSelection(smartFeed.Kind)));
         }
         foreach (var account in snapshot.Accounts.Where(account => account.IsActive))
         {
@@ -33,7 +33,7 @@ public sealed class SidebarViewModel
                     new ArticleSelection("folder", account.AccountID, FolderID: folder.FolderID), feeds) { Folder = folder, AccountID = account.AccountID });
             }
             children.AddRange(account.Feeds.Select(feed => FeedSpec(feed, null)));
-            desired.Add(new NodeSpec($"account:{account.AccountID}", SidebarNodeKind.Account, account.Name, account.UnreadCount, null, children) { AccountID = account.AccountID });
+            desired.Add(new NodeSpec($"account:{account.AccountID}", SidebarNodeKind.Account, AccountName(account), account.UnreadCount, null, children) { AccountID = account.AccountID });
         }
 
         Sync(Nodes, desired);
@@ -113,4 +113,16 @@ public sealed class SidebarViewModel
         /// <summary>For a feed: the folder it is in, so Delete removes it from the right place.</summary>
         public int? FolderID { get; init; }
     }
+
+    /// <summary>The smart feeds' names in the user's language. The core names them in English.</summary>
+    private static string SmartFeedName(SmartFeedInfo smartFeed) => smartFeed.Kind switch
+    {
+        "today" => Loc.Get("Today"),
+        "unread" => Loc.Get("AllUnread"),
+        "starred" => Loc.Get("Starred"),
+        _ => smartFeed.Name,
+    };
+
+    /// <summary>The local account's name in the user's language; sync accounts keep their own names.</summary>
+    internal static string AccountName(AccountInfo account) => account.Type == "onMyMac" ? Loc.Get("OnThisPC") : account.Name;
 }

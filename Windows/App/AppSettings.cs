@@ -13,7 +13,7 @@ internal sealed class AppSettings
     /// <summary>The Mac app's article text sizes, smallest first.</summary>
     public static readonly string[] TextSizes = ["small", "medium", "large", "xlarge", "xxlarge"];
 
-    public static readonly string[] TextSizeNames = ["Small", "Medium", "Large", "Extra Large", "Extra Extra Large"];
+    public static string[] TextSizeNames => [Loc.Get("TextSizeSmall"), Loc.Get("TextSizeMedium"), Loc.Get("TextSizeLarge"), Loc.Get("TextSizeExtraLarge"), Loc.Get("TextSizeExtraExtraLarge")];
 
     /// <summary>Lazy, so the static arrays below are set before Load validates against them.</summary>
     public static AppSettings Current => current.Value;
@@ -33,12 +33,12 @@ internal sealed class AppSettings
 
     public static readonly string[] TimelineThumbnailModes = ["none", "small", "large"];
 
-    public static readonly string[] TimelineThumbnailModeNames = ["None", "Small", "Large"];
+    public static string[] TimelineThumbnailModeNames => [Loc.Get("ThumbnailsNone"), Loc.Get("ThumbnailsSmall"), Loc.Get("ThumbnailsLarge")];
 
     /// <summary>The Mac's refresh intervals (Shared/Timer/RefreshInterval.swift), in seconds; 0 is Manually.</summary>
     public static readonly string[] RefreshIntervals = ["manually", "every30Minutes", "everyHour", "every2Hours", "every4Hours", "every8Hours"];
 
-    public static readonly string[] RefreshIntervalNames = ["Manually", "Every 30 Minutes", "Every Hour", "Every 2 Hours", "Every 4 Hours", "Every 8 Hours"];
+    public static string[] RefreshIntervalNames => [Loc.Get("RefreshManually"), Loc.Get("RefreshEvery30Minutes"), Loc.Get("RefreshEveryHour"), Loc.Get("RefreshEvery2Hours"), Loc.Get("RefreshEvery4Hours"), Loc.Get("RefreshEvery8Hours")];
 
     private static readonly int[] RefreshIntervalSeconds = [0, 30 * 60, 60 * 60, 2 * 60 * 60, 4 * 60 * 60, 8 * 60 * 60];
 
@@ -50,7 +50,7 @@ internal sealed class AppSettings
     /// <summary>The Mac timeline's sort fields. Saved per window on the Mac; for the app here.</summary>
     public static readonly string[] SortKeys = ["date", "feed", "title", "unread", "starred"];
 
-    public static readonly string[] SortKeyNames = ["Date", "Feed", "Title", "Unread", "Starred"];
+    public static string[] SortKeyNames => [Loc.Get("SortDate"), Loc.Get("SortFeed"), Loc.Get("SortTitle"), Loc.Get("SortUnread"), Loc.Get("SortStarred")];
 
     public string TimelineSortKey { get; set; } = "date";
 
@@ -66,9 +66,9 @@ internal sealed class AppSettings
     /// <summary>The Mac's menu titles for a direction: dates by age, text alphabetically, flags ascending or descending.</summary>
     public static string SortDirectionTitle(string key, bool ascending) => key switch
     {
-        "date" => ascending ? "Oldest Article on Top" : "Newest Article on Top",
-        "feed" or "title" => ascending ? "A to Z" : "Z to A",
-        _ => ascending ? "Ascending" : "Descending",
+        "date" => Loc.Get(ascending ? "OldestArticleOnTop" : "NewestArticleOnTop"),
+        "feed" or "title" => Loc.Get(ascending ? "AToZ" : "ZToA"),
+        _ => Loc.Get(ascending ? "Ascending" : "Descending"),
     };
 
     /// <summary>Null when the timeline shows no thumbnails.</summary>

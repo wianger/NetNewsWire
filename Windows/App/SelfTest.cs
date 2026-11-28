@@ -76,6 +76,10 @@ internal static class SelfTest
 
             // The window, driven as a user would: focus, the N and R shortcuts, the article page.
             report["initialFocus"] = window.FocusedElementForSelfTest();
+            var (toolbarString, sidebarString, codeString) = window.LocalizedStringsForSelfTest();
+            report["stringToolbar"] = toolbarString;
+            report["stringSidebar"] = sidebarString;
+            report["stringCode"] = codeString;
             await window.SelectSidebarItemForSelfTestAsync("smart:unread");
             var (title, isRead) = await window.PressShortcutForSelfTestAsync("n");
             report["shortcutNextUnreadSelected"] = title;

@@ -29,46 +29,46 @@
             </Grid.ColumnDefinitions>
             <TextBlock Text="NetNewsWire" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
             <AutoSuggestBox x:Name="SearchBox" Grid.Column="2" Width="360" VerticalAlignment="Center"
-                            PlaceholderText="Search articles" QueryIcon="Find"
+                            x:Uid="SearchBox" PlaceholderText="Search articles" QueryIcon="Find"
                             QuerySubmitted="SearchBox_QuerySubmitted"
                             AutomationProperties.Name="Search articles" />
         </Grid>
 
         <CommandBar x:Name="Toolbar" Grid.Row="1" DefaultLabelPosition="Right" HorizontalAlignment="Left" Background="Transparent">
-            <AppBarButton x:Name="RefreshButton" Icon="Refresh" Label="Refresh" Click="Refresh_Click" ToolTipService.ToolTip="Refresh (Ctrl+R)" />
-            <AppBarButton Icon="Add" Label="Add Feed" Click="AddFeed_Click" ToolTipService.ToolTip="Add a feed (Ctrl+N)" />
-            <AppBarButton Icon="NewFolder" Label="New Folder" Click="NewFolder_Click" ToolTipService.ToolTip="New folder (Ctrl+Shift+N)" />
+            <AppBarButton x:Name="RefreshButton" Icon="Refresh" x:Uid="Toolbar_Refresh" Label="Refresh" Click="Refresh_Click" ToolTipService.ToolTip="Refresh (Ctrl+R)" />
+            <AppBarButton Icon="Add" x:Uid="Toolbar_AddFeed" Label="Add Feed" Click="AddFeed_Click" ToolTipService.ToolTip="Add a feed (Ctrl+N)" />
+            <AppBarButton Icon="NewFolder" x:Uid="Toolbar_NewFolder" Label="New Folder" Click="NewFolder_Click" ToolTipService.ToolTip="New folder (Ctrl+Shift+N)" />
             <AppBarSeparator />
-            <AppBarButton Label="Mark All as Read" Click="MarkAllAsRead_Click" ToolTipService.ToolTip="Mark all as read (K)">
+            <AppBarButton x:Uid="Toolbar_MarkAllAsRead" Label="Mark All as Read" Click="MarkAllAsRead_Click" ToolTipService.ToolTip="Mark all as read (K)">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;" /></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Read" Click="ToggleRead_Click" ToolTipService.ToolTip="Mark read or unread (R)">
+            <AppBarButton x:Uid="Toolbar_Read" Label="Read" Click="ToggleRead_Click" ToolTipService.ToolTip="Mark read or unread (R)">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE73E;" /></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Star" Click="ToggleStarred_Click" ToolTipService.ToolTip="Star or unstar (S)">
+            <AppBarButton x:Uid="Toolbar_Star" Label="Star" Click="ToggleStarred_Click" ToolTipService.ToolTip="Star or unstar (S)">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE734;" /></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Next Unread" Click="NextUnread_Click" ToolTipService.ToolTip="Go to the next unread article (N)">
+            <AppBarButton x:Uid="Toolbar_NextUnread" Label="Next Unread" Click="NextUnread_Click" ToolTipService.ToolTip="Go to the next unread article (N)">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE893;" /></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Open in Browser" Click="OpenInBrowser_Click" ToolTipService.ToolTip="Open in browser (B)">
+            <AppBarButton x:Uid="Toolbar_OpenInBrowser" Label="Open in Browser" Click="OpenInBrowser_Click" ToolTipService.ToolTip="Open in browser (B)">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE774;" /></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator />
-            <AppBarButton x:Name="SortButton" Label="Sort" ToolTipService.ToolTip="Sort the timeline">
+            <AppBarButton x:Name="SortButton" x:Uid="Toolbar_Sort" Label="Sort" ToolTipService.ToolTip="Sort the timeline">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8CB;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
                     <MenuFlyout x:Name="SortMenu" Opening="SortMenu_Opening" Placement="BottomEdgeAlignedLeft" />
                 </AppBarButton.Flyout>
             </AppBarButton>
             <CommandBar.SecondaryCommands>
-                <AppBarButton Icon="Setting" Label="Settings…" Click="Settings_Click" ToolTipService.ToolTip="Settings (Ctrl+,)" />
-                <AppBarButton Icon="Contact" Label="Accounts…" Click="Accounts_Click" />
+                <AppBarButton Icon="Setting" x:Uid="Toolbar_Settings" Label="Settings…" Click="Settings_Click" ToolTipService.ToolTip="Settings (Ctrl+,)" />
+                <AppBarButton Icon="Contact" x:Uid="Toolbar_Accounts" Label="Accounts…" Click="Accounts_Click" />
                 <AppBarSeparator />
-                <AppBarButton Label="Import Subscriptions…" Click="ImportOpml_Click">
+                <AppBarButton x:Uid="Toolbar_Import" Label="Import Subscriptions…" Click="ImportOpml_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE8B5;" /></AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarButton Label="Export Subscriptions…" Click="ExportOpml_Click">
+                <AppBarButton x:Uid="Toolbar_Export" Label="Export Subscriptions…" Click="ExportOpml_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xEDE1;" /></AppBarButton.Icon>
                 </AppBarButton>
             </CommandBar.SecondaryCommands>
@@ -117,7 +117,7 @@
 
             <ListView x:Name="TimelineList" Grid.Column="2" ItemsSource="{x:Bind Timeline.Items}" SelectionMode="Extended"
                       SelectionChanged="TimelineList_SelectionChanged" ContainerContentChanging="TimelineList_ContainerContentChanging"
-                      AutomationProperties.Name="Timeline">
+                      x:Uid="TimelineList" AutomationProperties.Name="Timeline">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="vm:TimelineItem">
                         <Grid Padding="0,8" AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}">
@@ -168,7 +168,7 @@
             <toolkit:GridSplitter Grid.Column="3" Width="8" ResizeBehavior="BasedOnAlignment" ResizeDirection="Auto" Background="Transparent" />
 
             <Grid Grid.Column="4" CornerRadius="8" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                <WebView2 x:Name="ArticleView" AutomationProperties.Name="Article" />
+                <WebView2 x:Name="ArticleView" x:Uid="ArticleView" AutomationProperties.Name="Article" />
                 <Border x:Name="LinkOverlay" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8"
                         Padding="8,4" CornerRadius="4" Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}">
                     <TextBlock x:Name="LinkOverlayText" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" MaxWidth="600" />

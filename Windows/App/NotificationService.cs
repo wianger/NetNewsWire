@@ -71,8 +71,8 @@ internal static class NotificationService
             {
                 builder.AddText(notice.Summary);
             }
-            builder.AddButton(Button("Mark as Read", MarkReadAction, notice));
-            builder.AddButton(Button("Star", StarAction, notice));
+            builder.AddButton(Button(Loc.Get("MarkAsRead"), MarkReadAction, notice));
+            builder.AddButton(Button(Loc.Get("Star"), StarAction, notice));
             AppNotificationManager.Default.Show(builder.BuildNotification());
         }
     }

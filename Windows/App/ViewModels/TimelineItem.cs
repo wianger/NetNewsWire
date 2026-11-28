@@ -15,7 +15,7 @@ public sealed partial class TimelineItem(ArticleSummary summary, string? thumbna
 
     public string ArticleID => Summary.ArticleID;
 
-    public string Title => string.IsNullOrWhiteSpace(Summary.Title) ? Summary.Summary ?? "Untitled" : Summary.Title;
+    public string Title => string.IsNullOrWhiteSpace(Summary.Title) ? Summary.Summary ?? Loc.Get("Untitled") : Summary.Title;
 
     /// <summary>The preview line. Empty when the title already is the summary.</summary>
     public string Preview => string.IsNullOrWhiteSpace(Summary.Title) ? "" : Summary.Summary ?? "";
@@ -32,7 +32,14 @@ public sealed partial class TimelineItem(ArticleSummary summary, string? thumbna
         }
     }
 
-    public string AccessibleName => $"{(IsRead ? "" : "Unread, ")}{(IsStarred ? "Starred, " : "")}{Title}, {FeedName}, {DateText}";
+    public string AccessibleName => string.Join(", ", new[]
+    {
+        IsRead ? null : Loc.Get("ArticleAccessibleUnread"),
+        IsStarred ? Loc.Get("ArticleAccessibleStarred") : null,
+        Title,
+        FeedName,
+        DateText,
+    }.Where(part => part is not null));
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AccessibleName))]
