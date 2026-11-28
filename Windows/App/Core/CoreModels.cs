@@ -75,6 +75,11 @@ public sealed record AddedAccount(string AccountID, string Name);
 /// <summary>What a URL the app was opened with means. Kind: addFeed, installTheme, or ignore.</summary>
 public sealed record OpenedURLAction(string Kind, string? Url);
 
+internal sealed record DownloadedTheme(string ZipPath);
+
+/// <summary>A theme read without installing it. IsInstalled: installing replaces one of the same name.</summary>
+public sealed record InspectedTheme(string Name, string CreatorName, string CreatorHomePage, string Version, bool IsInstalled);
+
 internal sealed record EmptyResult;
 
 /// <summary>
@@ -110,6 +115,7 @@ internal sealed record ThemeNameParams(string Name);
 internal sealed record AddAccountParams(string Type, string? Username, string? Password, string? ApiToken, string? ApiURL);
 internal sealed record AccountIDParams(string AccountID);
 internal sealed record OpenedURLParams(string Url);
+internal sealed record ThemeURLParams(string Url);
 internal sealed record RefreshScheduleParams(int? IntervalSeconds, bool? RefreshNow);
 internal sealed record FeedNotificationsParams(string AccountID, string FeedID, bool Enabled);
 internal sealed record SetAccountActiveParams(string AccountID, bool IsActive);
@@ -142,6 +148,9 @@ public sealed class CoreException(string code, string message) : Exception(messa
 [JsonSerializable(typeof(AddedAccount))]
 [JsonSerializable(typeof(OpenedURLAction))]
 [JsonSerializable(typeof(OpenedURLParams))]
+[JsonSerializable(typeof(ThemeURLParams))]
+[JsonSerializable(typeof(DownloadedTheme))]
+[JsonSerializable(typeof(InspectedTheme))]
 [JsonSerializable(typeof(RefreshScheduleParams))]
 [JsonSerializable(typeof(FeedNotificationsParams))]
 [JsonSerializable(typeof(AddAccountParams))]

@@ -147,6 +147,23 @@ internal static class SelfTest
 
             // Themes: the ones next to the exe, and the setting applied to the page.
             var themes = await SwiftCore.ListThemesAsync();
+
+            // A theme from a link, after the download: unzipped, confirmed, installed, then removed again.
+            var bundledThemes = Path.Combine(AppContext.BaseDirectory, "Themes");
+            if (Directory.Exists(Path.Combine(bundledThemes, "Sepia.nnwtheme")))
+            {
+                report["themeFromLinkLastDialog"] = await window.InstallThemeFromZipForSelfTestAsync(Path.Combine(bundledThemes, "Sepia.nnwtheme"));
+                // The list shows the app's own Sepia first; deleting works only for an installed theme, so it proves the install.
+                try
+                {
+                    await SwiftCore.DeleteThemeAsync("Sepia");
+                    report["themeFromLinkInstalled"] = true;
+                }
+                catch (CoreException)
+                {
+                    report["themeFromLinkInstalled"] = false;
+                }
+            }
             report["themeCount"] = themes.Count;
             if (themes.Any(theme => theme.Name == "Sepia") && articles.FirstOrDefault() is { } themed)
             {

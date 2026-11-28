@@ -26,6 +26,12 @@ extension CoreService {
 		case "articles.fetch":
 			let params = try request.decode(FetchArticlesParams.self)
 			return try Self.response(await fetchArticles(params.selection, limit: params.limit, sort: params.sortParameters, groupByFeed: params.groupByFeed ?? false, thumbnailMode: params.thumbnailMode?.thumbnailMode))
+		case "themes.download":
+			let params = try request.decode(ThemeURLParams.self)
+			return try Self.response(try await downloadTheme(params))
+		case "themes.inspect":
+			let params = try request.decode(InstallThemeParams.self)
+			return try Self.response(try inspectTheme(params))
 		case "app.interpretOpenedURL":
 			let params = try request.decode(OpenedURLParams.self)
 			return try Self.response(interpretOpenedURL(params))

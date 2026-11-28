@@ -561,8 +561,8 @@ public sealed partial class MainWindow : Window
                 case "addFeed" when action.Url is { } feedURL:
                     await AddFeedAsync(feedURL);
                     break;
-                case "installTheme":
-                    await ShowAlertAsync("Can’t Install the Theme", "Installing a theme from a link isn’t available on Windows yet. Download the theme, then choose Install Theme in Settings.");
+                case "installTheme" when action.Url is { } themeURL:
+                    await InstallThemeFromLinkAsync(themeURL);
                     break;
             }
         }
@@ -573,6 +573,136 @@ public sealed partial class MainWindow : Window
     }
 
     private string? lastOpenedURLForSelfTest;
+
+    // MARK: - Themes from links
+
+    /// <summary>
+    /// A netnewswire://theme/ link, as the Mac handles it: download the zip, unzip it, find the .nnwtheme
+    /// in it, and ask before installing — and again before replacing an installed theme of the same name.
+    /// </summary>
+    private async Task InstallThemeFromLinkAsync(string url)
+    {
+        StatusText.Text = "Downloading the theme";
+        string zipPath;
+        try
+        {
+            zipPath = await SwiftCore.DownloadThemeAsync(url);
+        }
+        catch (CoreException e)
+        {
+            StatusText.Text = "";
+            await ShowAlertAsync("Couldn’t Download the Theme", e.Message);
+            return;
+        }
+        StatusText.Text = "";
+        await InstallThemeFromZipAsync(zipPath);
+    }
+
+    private async Task InstallThemeFromZipAsync(string zipPath)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"NetNewsWire-theme-{Guid.NewGuid():N}");
+        try
+        {
+            // ExtractToDirectory refuses entries that would land outside the folder.
+            System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, folder);
+            var themePath = Directory.EnumerateDirectories(folder, "*.nnwtheme", SearchOption.AllDirectories).FirstOrDefault();
+            if (themePath is null)
+            {
+                await ShowAlertAsync("Couldn’t Install the Theme", "There is no NetNewsWire theme in the download.");
+                return;
+            }
+            var theme = await SwiftCore.InspectThemeAsync(themePath);
+
+            var website = new StackPanel { Spacing = 4 };
+            if (Uri.TryCreate(theme.CreatorHomePage, UriKind.Absolute, out var homePage) && (homePage.Scheme == Uri.UriSchemeHttp || homePage.Scheme == Uri.UriSchemeHttps))
+            {
+                website.Children.Add(new TextBlock { Text = "Author’s website:" });
+                website.Children.Add(new HyperlinkButton { Content = theme.CreatorHomePage, NavigateUri = homePage, Padding = new Thickness(0) });
+            }
+            if (await ConfirmThemeAsync($"Install theme “{theme.Name}” by {theme.CreatorName}?", website, "Install Theme") != ContentDialogResult.Primary)
+            {
+                return;
+            }
+            if (theme.IsInstalled && await ConfirmThemeAsync($"The theme “{theme.Name}” already exists. Overwrite it?", null, "Overwrite") != ContentDialogResult.Primary)
+            {
+                return;
+            }
+            await SwiftCore.InstallThemeAsync(themePath);
+            await ShowAlertAsync("Theme Installed", $"The theme “{theme.Name}” has been installed.");
+        }
+        catch (Exception e) when (e is CoreException or IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            await ShowAlertAsync("Couldn’t Install the Theme", e.Message);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(zipPath);
+                Directory.Delete(folder, recursive: true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Debug.WriteLine($"Cleaning up the theme download: {e.Message}");
+            }
+        }
+    }
+
+    private Task<ContentDialogResult> ConfirmThemeAsync(string title, UIElement? content, string primaryButton)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = content,
+            PrimaryButtonText = primaryButton,
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = Content.XamlRoot
+        };
+        return dialog.ShowAsync().AsTask();
+    }
+
+    /// <summary>
+    /// The link flow after the download: zips a theme folder, runs the install flow on it, presses Install Theme
+    /// and then OK, and returns the alert's title. The caller deletes the installed theme.
+    /// </summary>
+    internal async Task<string?> InstallThemeFromZipForSelfTestAsync(string themeFolder)
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"NetNewsWire-selftest-{Guid.NewGuid():N}.zip");
+        var staging = Path.Combine(Path.GetTempPath(), $"NetNewsWire-selftest-{Guid.NewGuid():N}");
+        CopyDirectory(themeFolder, Path.Combine(staging, Path.GetFileName(themeFolder)));
+        System.IO.Compression.ZipFile.CreateFromDirectory(staging, zipPath);
+        Directory.Delete(staging, recursive: true);
+
+        var installing = InstallThemeFromZipAsync(zipPath);
+        string? finalTitle = null;
+        for (var step = 0; step < 3 && !installing.IsCompleted; step++)
+        {
+            await Task.Delay(1500);
+            finalTitle = OpenDialogTitleForSelfTest();
+            PressDialogButtonForSelfTest(finalTitle?.StartsWith("Install theme", StringComparison.Ordinal) == true ? "Install Theme" : finalTitle?.Contains("Overwrite", StringComparison.Ordinal) == true ? "Overwrite" : "OK");
+        }
+        await installing;
+        return finalTitle;
+
+        static void CopyDirectory(string source, string destination)
+        {
+            Directory.CreateDirectory(destination);
+            foreach (var file in Directory.GetFiles(source))
+            {
+                File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+            }
+            foreach (var directory in Directory.GetDirectories(source))
+            {
+                CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+            }
+        }
+    }
+
+    private string? OpenDialogTitleForSelfTest() =>
+        Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(Content.XamlRoot)
+            .Select(popup => popup.Child as ContentDialog ?? FindDescendant<ContentDialog>(popup.Child))
+            .FirstOrDefault(dialog => dialog is not null)?.Title as string;
 
     // MARK: - Notifications
 

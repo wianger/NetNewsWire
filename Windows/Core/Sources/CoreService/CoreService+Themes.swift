@@ -10,6 +10,10 @@
 import Foundation
 import RSCore
 import ArticleRendering
+import RSWeb
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 extension CoreService {
 
@@ -44,6 +48,43 @@ extension CoreService {
 		return ThemeInfo(name: theme.name, creatorName: theme.creatorName, creatorHomePage: theme.creatorHomePage, version: theme.version, isAppTheme: false, isDefault: false)
 	}
 
+	/// Downloads a theme's zip archive from a netnewswire://theme/ link, as the Mac's ArticleThemeDownloader
+	/// does: http or https only, at most 10 MB, with a browser user agent. Returns where the zip was saved;
+	/// the app unzips it and asks before installing.
+	func downloadTheme(_ params: ThemeURLParams) async throws -> DownloadedTheme {
+		guard let url = URL(string: params.url), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+			throw CoreServiceError.invalidParams("A NetNewsWire theme can be downloaded only from an http or https URL.")
+		}
+		let response: DownloadResponse
+		do {
+			response = try await Downloader.shared.download(url, userAgentStyle: .browser, cachesResponse: false)
+		} catch {
+			throw CoreServiceError(code: "failed", message: "The NetNewsWire theme could not be downloaded: \(error.localizedDescription)")
+		}
+		guard let data = response.data, !data.isEmpty, let httpResponse = response.response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+			throw CoreServiceError(code: "failed", message: "The NetNewsWire theme could not be downloaded.")
+		}
+		guard data.count <= Self.maximumThemeDownloadSize else {
+			throw CoreServiceError(code: "failed", message: "The NetNewsWire theme is too large.")
+		}
+		let zip = FileManager.default.temporaryDirectory.appending(path: "NetNewsWire-theme-\(UUID().uuidString).zip")
+		try data.write(to: zip)
+		return DownloadedTheme(zipPath: zip.path(percentEncoded: false))
+	}
+
+	/// A theme's details without installing it, and whether one by that name is installed already.
+	func inspectTheme(_ params: InstallThemeParams) throws -> InspectedTheme {
+		let url = URL(filePath: params.path, directoryHint: .isDirectory)
+		let theme: ArticleTheme
+		do {
+			theme = try ArticleTheme(url: url, isAppTheme: false)
+		} catch {
+			throw CoreServiceError(code: "invalidTheme", message: "This theme can’t be used: \(error.localizedDescription)")
+		}
+		let name = ArticleTheme.themeNameForPath(url.path)
+		return InspectedTheme(name: theme.name, creatorName: theme.creatorName, creatorHomePage: theme.creatorHomePage, version: theme.version, isInstalled: themeStore.installedThemeURL(named: name) != nil)
+	}
+
 	func deleteTheme(_ params: ThemeNameParams) throws {
 		guard let url = themeStore.installedThemeURL(named: params.name) else {
 			throw CoreServiceError.notFound("Installed theme \(params.name)")
@@ -68,6 +109,24 @@ struct ThemeInfo: Encodable {
 struct InstallThemeParams: Decodable {
 	/// A folder whose name ends in .nnwtheme.
 	let path: String
+}
+
+struct ThemeURLParams: Decodable {
+	let url: String
+}
+
+struct DownloadedTheme: Encodable {
+	/// The downloaded zip archive, in the temporary folder.
+	let zipPath: String
+}
+
+struct InspectedTheme: Encodable {
+	let name: String
+	let creatorName: String
+	let creatorHomePage: String
+	let version: String
+	/// Installing it replaces the installed theme of the same name.
+	let isInstalled: Bool
 }
 
 struct ThemeNameParams: Decodable {
@@ -135,4 +194,10 @@ struct ThemeNameParams: Decodable {
 	private static func name(_ url: URL) -> String {
 		ArticleTheme.themeNameForPath(url.path)
 	}
+}
+
+extension CoreService {
+
+	/// As the Mac's ArticleThemeDownloader.
+	static let maximumThemeDownloadSize = 10_000_000
 }

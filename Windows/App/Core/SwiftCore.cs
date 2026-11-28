@@ -123,6 +123,14 @@ public static class SwiftCore
     public static Task ScheduleRefreshAsync(int intervalSeconds, bool refreshNow) =>
         RequestAsync("refresh.schedule", Serialize(new RefreshScheduleParams(intervalSeconds, refreshNow), CoreJsonContext.Default.RefreshScheduleParams), CoreJsonContext.Default.EmptyResult);
 
+    /// <summary>Downloads a theme's zip archive (http or https, at most 10 MB) and returns where it was saved.</summary>
+    public static async Task<string> DownloadThemeAsync(string url) =>
+        (await RequestAsync("themes.download", Serialize(new ThemeURLParams(url), CoreJsonContext.Default.ThemeURLParams), CoreJsonContext.Default.DownloadedTheme)).ZipPath;
+
+    /// <summary>A .nnwtheme folder's details, without installing it.</summary>
+    public static Task<InspectedTheme> InspectThemeAsync(string path) =>
+        RequestAsync("themes.inspect", Serialize(new InstallThemeParams(path), CoreJsonContext.Default.InstallThemeParams), CoreJsonContext.Default.InspectedTheme);
+
     // Accounts
 
     /// <summary>The sync services this build can add.</summary>

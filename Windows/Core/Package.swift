@@ -41,7 +41,8 @@ let package = Package(
 				.product(name: "Account", package: "Account"),
 				.product(name: "ArticleRendering", package: "ArticleRendering"),
 				.product(name: "Images", package: "Images"),
-				.product(name: "Secrets", package: "Secrets")
+				.product(name: "Secrets", package: "Secrets"),
+				.product(name: "RSWeb", package: "RSWeb")
 			],
 			resources: [
 				// The Windows counterpart of Mac/MainWindow/Detail/page.html. Like it, no doctype:

@@ -163,6 +163,20 @@ import Secrets
 		#expect(local.code == "invalidParams")
 	}
 
+	@Test func themesFromLinksAreInspectedBeforeInstalling() async throws {
+		let notWeb = try await callExpectingError("themes.download", params: #"{"url": "ftp://example.com/Theme.nnwtheme.zip"}"#)
+		#expect(notWeb.code == "invalidParams", "http and https only, as on the Mac")
+
+		let sepia = Self.repositoryThemesFolder.appending(path: "Sepia.nnwtheme").path(percentEncoded: false)
+		let inspected = try await call("themes.inspect", params: try jsonObject(["path": sepia]), as: InspectedThemeResult.self)
+		#expect(inspected.name == "Sepia")
+		#expect(!inspected.creatorName.isEmpty)
+		#expect(!inspected.isInstalled, "an app theme, not an installed one")
+
+		let notATheme = try await callExpectingError("themes.inspect", params: try jsonObject(["path": Self.repositoryThemesFolder.path(percentEncoded: false)]))
+		#expect(notATheme.code == "invalidTheme")
+	}
+
 	// MARK: - Timers
 
 	@Test func refreshSchedulerRunsAtItsIntervalAndStopsWhenManual() async throws {
@@ -528,6 +542,12 @@ private struct AddedAccountResult: Decodable {
 private struct OpenedURLActionResult: Decodable, Equatable {
 	let kind: String
 	let url: String?
+}
+
+private struct InspectedThemeResult: Decodable {
+	let name: String
+	let creatorName: String
+	let isInstalled: Bool
 }
 
 @MainActor private final class Counter {
