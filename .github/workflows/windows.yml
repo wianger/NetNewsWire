@@ -45,22 +45,23 @@ jobs:
         with:
           swift-version: '6.4.3'
 
-      # Swift 6.4's Clang predates Visual Studio 2026's C++ library (MSVC 14.5x requires Clang 22), so
-      # build with the VS 2022 toolset (14.44) the images also install. vcvarsall sets INCLUDE, LIB, and
-      # VCToolsInstallDir for it, which Clang uses in place of looking for the newest toolset.
+      # Swift 6.4's Clang predates Visual Studio 2026's C++ library (MSVC 14.5x requires Clang 22). The
+      # images also install the VS 2022 toolset, 14.44, but Swift Build always takes the newest toolset
+      # in the newest Visual Studio (SWBWindowsPlugin.cachedLatestVSInstallDirectory) and has no
+      # override, so on this throwaway runner the newer toolsets are moved out of its way.
       - name: Use the MSVC 14.44 toolset
         shell: pwsh
         run: |
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
-          $arch = if ('${{ matrix.platform }}' -eq 'ARM64') { 'arm64' } else { 'x64' }
-          $environment = cmd /c "`"$vs\VC\Auxiliary\Build\vcvarsall.bat`" $arch -vcvars_ver=14.44 >nul && set"
-          if ($LASTEXITCODE -ne 0) { throw "vcvarsall failed for MSVC 14.44 ($arch)" }
-          foreach ($line in $environment) {
-            if ($line -match '^(INCLUDE|LIB|LIBPATH|PATH|VCToolsInstallDir|VCToolsVersion|WindowsSdkDir|WindowsSDKVersion|UniversalCRTSdkDir|UCRTVersion)=(.*)$') {
-              "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV
-            }
+          $msvc = Join-Path $vs 'VC\Tools\MSVC'
+          if (-not (Test-Path (Join-Path $msvc '14.44.*'))) { throw "MSVC 14.44 isn't installed in $vs" }
+          $aside = Join-Path $vs 'VC\Tools\MSVC-newer'
+          New-Item -ItemType Directory -Force $aside | Out-Null
+          Get-ChildItem $msvc -Directory | Where-Object { [version]$_.Name -gt [version]'14.44.99999' } | ForEach-Object {
+            Write-Host "Moving aside MSVC $($_.Name)"
+            Move-Item $_.FullName $aside
           }
-          $environment | Where-Object { $_ -like 'VCToolsVersion=*' }
+          Get-ChildItem $msvc -Directory | ForEach-Object { "MSVC toolsets in use: $($_.Name)" }
 
       - name: Install .NET
         uses: actions/setup-dotnet@v6
