@@ -62,6 +62,15 @@ jobs:
             Move-Item $_.FullName $aside
           }
           Get-ChildItem $msvc -Directory | ForEach-Object { "MSVC toolsets in use: $($_.Name)" }
+          # The environment Swift was set up with pointed into the moved toolset: set it again for 14.44.
+          $arch = if ('${{ matrix.platform }}' -eq 'ARM64') { 'arm64' } else { 'x64' }
+          $environment = cmd /c "`"$vs\VC\Auxiliary\Build\vcvarsall.bat`" $arch -vcvars_ver=14.44 >nul && set"
+          if ($LASTEXITCODE -ne 0) { throw "vcvarsall failed for MSVC 14.44 ($arch)" }
+          foreach ($line in $environment) {
+            if ($line -match '^(INCLUDE|LIB|LIBPATH|PATH|VCToolsInstallDir|VCToolsVersion|VCINSTALLDIR|WindowsSdkDir|WindowsSDKVersion|UniversalCRTSdkDir|UCRTVersion)=(.*)$') {
+              "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV
+            }
+          }
 
       - name: Install .NET
         uses: actions/setup-dotnet@v6
